@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-REPO_URL="https://github.com/DEIN-USERNAME/DEIN-REPO.git"  # <-- anpassen!
+REPO_URL="https://github.com/Maximilian-Andrew-Kluge/deutscher-rp-bot.git"
 INSTALL_DIR="/opt/deutscher-rp-bot"
 
 echo -e "${BLUE}"
