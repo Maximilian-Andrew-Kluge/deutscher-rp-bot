@@ -1,6 +1,48 @@
-import { Client, VoiceChannel, CategoryChannel, PermissionFlagsBits, ChannelType, GuildMember } from 'discord.js';
+import {
+  Client, VoiceChannel, CategoryChannel, PermissionFlagsBits, ChannelType, GuildMember,
+  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ColorResolvable,
+} from 'discord.js';
 import { getDatabase } from '../database/database';
 import { LogService } from './logService';
+import { config } from '../config/config';
+
+/** Baut das TempVoice-Steuerungs-Interface (Embed + Buttons) */
+export function buildTempVoiceInterface(): { embed: EmbedBuilder; components: ActionRowBuilder<ButtonBuilder>[] } {
+  const embed = new EmbedBuilder()
+    .setColor(config.colors.server as ColorResolvable)
+    .setTitle('🎙️ TempVoice Interface')
+    .setDescription(
+      'Dieses **Interface** kann verwendet werden, um deinen temporären Kanal zu bearbeiten.\n\n' +
+      'Nur der **Besitzer** des Kanals (oder ein Admin) kann diese Buttons nutzen.\n\n' +
+      '**Verfügbare Aktionen:**\n' +
+      '✏️ **Umbenennen** — Kanalname ändern\n' +
+      '👥 **Benutzerlimit** — Max. Teilnehmerzahl\n' +
+      '🔒 **Privatsphäre** — Kanal sperren/entsperren\n' +
+      '➕ **Hinzufügen** — Benutzer Zugriff geben\n' +
+      '➖ **Entfernen** — Zugriff entziehen\n' +
+      '🔇 **Trennen** — Benutzer aus dem Kanal werfen\n' +
+      '🚫 **Blockieren** — Benutzer sperren\n' +
+      '✅ **Entblockieren** — Sperre aufheben'
+    )
+    .setFooter({ text: 'Deutscher RP Server | TempVoice' });
+
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId('tempvoice_rename').setLabel('Umbenennen').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
+    new ButtonBuilder().setCustomId('tempvoice_limit').setLabel('Benutzerlimit').setStyle(ButtonStyle.Secondary).setEmoji('👥'),
+    new ButtonBuilder().setCustomId('tempvoice_privacy').setLabel('Privatsphäre').setStyle(ButtonStyle.Secondary).setEmoji('🔒'),
+    new ButtonBuilder().setCustomId('tempvoice_add').setLabel('Hinzufügen').setStyle(ButtonStyle.Success).setEmoji('➕'),
+    new ButtonBuilder().setCustomId('tempvoice_remove').setLabel('Entfernen').setStyle(ButtonStyle.Danger).setEmoji('➖'),
+  );
+
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId('tempvoice_disconnect').setLabel('Trennen').setStyle(ButtonStyle.Danger).setEmoji('🔇'),
+    new ButtonBuilder().setCustomId('tempvoice_block').setLabel('Blockieren').setStyle(ButtonStyle.Danger).setEmoji('🚫'),
+    new ButtonBuilder().setCustomId('tempvoice_unblock').setLabel('Entblockieren').setStyle(ButtonStyle.Success).setEmoji('✅'),
+    new ButtonBuilder().setCustomId('tempvoice_claim').setLabel('Übernehmen').setStyle(ButtonStyle.Secondary).setEmoji('👑'),
+  );
+
+  return { embed, components: [row1, row2] };
+}
 
 interface TempChannel {
   id: number;
@@ -59,6 +101,18 @@ export class VoiceService {
 
       // Benutzer verschieben
       await member.voice.setChannel(newChannel);
+
+      // TempVoice-Interface in den Voice-Kanal-Chat posten
+      try {
+        const { embed, components } = buildTempVoiceInterface();
+        await newChannel.send({
+          content: `${member} — willkommen in deinem Kanal!`,
+          embeds: [embed],
+          components,
+        });
+      } catch (interfaceErr) {
+        console.warn('TempVoice-Interface konnte nicht gepostet werden:', interfaceErr);
+      }
 
       await this.logService.log(member.guild.id, 'Temp. Voice-Kanal erstellt', member.id, `Kanal: ${channelName}`);
     } catch (err) {

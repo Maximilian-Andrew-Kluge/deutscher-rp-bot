@@ -4,7 +4,8 @@ import {
   ModalSubmitInteraction, StringSelectMenuInteraction,
   EmbedBuilder, ColorResolvable, ThreadChannel, ButtonBuilder, ButtonStyle,
   GuildMember, TextChannel, RoleSelectMenuBuilder, RoleSelectMenuInteraction,
-  ComponentType, Message, AttachmentBuilder
+  ComponentType, Message, AttachmentBuilder,
+  UserSelectMenuBuilder, UserSelectMenuInteraction, VoiceChannel, PermissionFlagsBits, ChannelType,
 } from 'discord.js';
 import { VerfahrenService } from '../services/verfahrenService';
 import { hasJustizPermission, hasAdminPermission } from '../utils/permissions';
@@ -35,6 +36,8 @@ export class PanelManager {
         await this.handleSelect(interaction);
       } else if (interaction.isRoleSelectMenu()) {
         await this.handleRoleSelect(interaction);
+      } else if (interaction.isUserSelectMenu()) {
+        await this.handleUserSelect(interaction);
       }
     } catch (err) {
       console.error('PanelManager Fehler:', err);
@@ -47,6 +50,12 @@ export class PanelManager {
   private async handleButton(interaction: ButtonInteraction): Promise<void> {
     const member = interaction.member as GuildMember;
     const id = interaction.customId;
+
+    // ── TempVoice Interface ──
+    if (id.startsWith('tempvoice_')) {
+      await this.handleTempVoiceButton(interaction, member);
+      return;
+    }
 
     // ── Neues Verfahren Panel-Button ──
     // ── Verfahren mehrstufig — Weiter-Buttons ──────────────────────────────
@@ -661,7 +670,9 @@ export class PanelManager {
   private async handleModal(interaction: ModalSubmitInteraction): Promise<void> {
     const id = interaction.customId;
 
-    if (id.startsWith('modal_admin_')) {
+    if (id.startsWith('modal_tempvoice_')) {
+      await this.handleTempVoiceModal(interaction);
+    } else if (id.startsWith('modal_admin_')) {
       await handleAdminModal(interaction);
     } else if (id.startsWith('modal_abschliessen_')) {
       await this.handleAbschliessenModal(interaction);
@@ -1561,6 +1572,220 @@ export class PanelManager {
   private extractField(lines: string[], key: string): string {
     const line = lines.find(l => l.toLowerCase().startsWith(key + ':'));
     return line ? line.split(':').slice(1).join(':').trim() : '';
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TEMPVOICE INTERFACE HANDLER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Prüft ob User Besitzer des Kanals ist (oder Admin). Gibt VoiceChannel + tempRow zurück. */
+  private async tempVoiceCheck(interaction: ButtonInteraction | UserSelectMenuInteraction, member: GuildMember): Promise<{ channel: VoiceChannel; ownerId: string } | null> {
+    const db = getDatabase();
+    const tempRow = db.prepare('SELECT * FROM temp_voice_channels WHERE channel_id = ?')
+      .get(interaction.channelId!) as { channel_id: string; owner_id: string } | undefined;
+
+    if (!tempRow) {
+      await interaction.reply({ embeds: [createErrorEmbed('Kein TempVoice-Kanal', 'Dieser Kanal ist kein temporärer Voice-Kanal.')], ephemeral: true });
+      return null;
+    }
+
+    if (tempRow.owner_id !== interaction.user.id && !hasAdminPermission(member)) {
+      await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur der Besitzer des Kanals kann das Interface nutzen.')], ephemeral: true });
+      return null;
+    }
+
+    const channel = interaction.channel as VoiceChannel;
+    if (!channel || channel.type !== ChannelType.GuildVoice) {
+      await interaction.reply({ embeds: [createErrorEmbed('Fehler', 'Voice-Kanal nicht gefunden.')], ephemeral: true });
+      return null;
+    }
+
+    return { channel, ownerId: tempRow.owner_id };
+  }
+
+  private async handleTempVoiceButton(interaction: ButtonInteraction, member: GuildMember): Promise<void> {
+    const id = interaction.customId;
+
+    // ── Umbenennen → Modal ──
+    if (id === 'tempvoice_rename') {
+      const check = await this.tempVoiceCheck(interaction, member);
+      if (!check) return;
+      const modal = new ModalBuilder().setCustomId('modal_tempvoice_rename').setTitle('Kanal umbenennen')
+        .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder().setCustomId('name').setLabel('Neuer Kanalname')
+            .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(100)
+            .setPlaceholder('z.B. 🎮 Gaming Lounge')
+        ));
+      await interaction.showModal(modal);
+      return;
+    }
+
+    // ── Benutzerlimit → Modal ──
+    if (id === 'tempvoice_limit') {
+      const check = await this.tempVoiceCheck(interaction, member);
+      if (!check) return;
+      const modal = new ModalBuilder().setCustomId('modal_tempvoice_limit').setTitle('Benutzerlimit setzen')
+        .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder().setCustomId('limit').setLabel('Max. Benutzer (0 = unbegrenzt, max. 99)')
+            .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(2)
+            .setPlaceholder('z.B. 5')
+        ));
+      await interaction.showModal(modal);
+      return;
+    }
+
+    // ── Privatsphäre → Kanal sperren/entsperren (Toggle) ──
+    if (id === 'tempvoice_privacy') {
+      const check = await this.tempVoiceCheck(interaction, member);
+      if (!check) return;
+      const everyone = check.channel.guild.roles.everyone;
+      const current = check.channel.permissionOverwrites.cache.get(everyone.id);
+      const istGesperrt = current?.deny.has(PermissionFlagsBits.Connect);
+
+      await check.channel.permissionOverwrites.edit(everyone, { Connect: istGesperrt ? null : false });
+      await interaction.reply({
+        embeds: [createSuccessEmbed(
+          istGesperrt ? '🔓 Kanal entsperrt' : '🔒 Kanal gesperrt',
+          istGesperrt ? 'Jeder kann den Kanal jetzt betreten.' : 'Nur berechtigte Benutzer können den Kanal betreten.'
+        )],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // ── Benutzer-Aktionen → UserSelectMenu ──
+    const userSelectActions: Record<string, { titel: string; placeholder: string }> = {
+      tempvoice_add:        { titel: '➕ Benutzer hinzufügen',   placeholder: 'Benutzer auswählen der Zugriff bekommt...' },
+      tempvoice_remove:     { titel: '➖ Zugriff entfernen',     placeholder: 'Benutzer auswählen dem Zugriff entzogen wird...' },
+      tempvoice_disconnect: { titel: '🔇 Benutzer trennen',      placeholder: 'Benutzer auswählen der getrennt wird...' },
+      tempvoice_block:      { titel: '🚫 Benutzer blockieren',   placeholder: 'Benutzer auswählen der blockiert wird...' },
+      tempvoice_unblock:    { titel: '✅ Benutzer entblockieren', placeholder: 'Benutzer auswählen dessen Sperre aufgehoben wird...' },
+    };
+
+    if (userSelectActions[id]) {
+      const check = await this.tempVoiceCheck(interaction, member);
+      if (!check) return;
+      const cfg = userSelectActions[id];
+      await interaction.reply({
+        embeds: [new EmbedBuilder().setColor(config.colors.server as ColorResolvable).setTitle(cfg.titel).setDescription('Wähle einen Benutzer aus dem Menü.')],
+        components: [new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(
+          new UserSelectMenuBuilder().setCustomId(`userselect_${id}`).setPlaceholder(cfg.placeholder).setMinValues(1).setMaxValues(1)
+        )],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // ── Kanal übernehmen (wenn Besitzer weg ist) ──
+    if (id === 'tempvoice_claim') {
+      const db = getDatabase();
+      const tempRow = db.prepare('SELECT * FROM temp_voice_channels WHERE channel_id = ?')
+        .get(interaction.channelId!) as { owner_id: string } | undefined;
+      if (!tempRow) {
+        await interaction.reply({ embeds: [createErrorEmbed('Fehler', 'Kein TempVoice-Kanal.')], ephemeral: true });
+        return;
+      }
+      const channel = interaction.channel as VoiceChannel;
+      // Besitzer noch im Kanal? Dann nicht übernehmbar
+      if (channel.members.has(tempRow.owner_id) && tempRow.owner_id !== interaction.user.id) {
+        await interaction.reply({ embeds: [createErrorEmbed('Nicht möglich', 'Der Besitzer ist noch im Kanal.')], ephemeral: true });
+        return;
+      }
+      db.prepare('UPDATE temp_voice_channels SET owner_id = ? WHERE channel_id = ?').run(interaction.user.id, interaction.channelId!);
+      await channel.permissionOverwrites.edit(interaction.user.id, {
+        ManageChannels: true, MoveMembers: true, MuteMembers: true, DeafenMembers: true,
+      });
+      await interaction.reply({ embeds: [createSuccessEmbed('👑 Kanal übernommen', `${interaction.user} ist jetzt Besitzer dieses Kanals.`)], ephemeral: true });
+      return;
+    }
+  }
+
+  private async handleUserSelect(interaction: UserSelectMenuInteraction): Promise<void> {
+    const member = interaction.member as GuildMember;
+    if (!interaction.customId.startsWith('userselect_tempvoice_')) return;
+
+    const check = await this.tempVoiceCheck(interaction, member);
+    if (!check) return;
+
+    const targetUser = interaction.users.first();
+    if (!targetUser) {
+      await interaction.reply({ embeds: [createErrorEmbed('Fehler', 'Kein Benutzer ausgewählt.')], ephemeral: true });
+      return;
+    }
+
+    const channel = check.channel;
+    const aktion = interaction.customId.replace('userselect_', '');
+
+    try {
+      if (aktion === 'tempvoice_add') {
+        await channel.permissionOverwrites.edit(targetUser.id, { Connect: true, ViewChannel: true });
+        await interaction.update({ embeds: [createSuccessEmbed('➕ Hinzugefügt', `${targetUser} hat jetzt Zugriff auf den Kanal.`)], components: [] });
+
+      } else if (aktion === 'tempvoice_remove') {
+        await channel.permissionOverwrites.delete(targetUser.id);
+        await interaction.update({ embeds: [createSuccessEmbed('➖ Entfernt', `${targetUser} hat keinen speziellen Zugriff mehr.`)], components: [] });
+
+      } else if (aktion === 'tempvoice_disconnect') {
+        const targetMember = await channel.guild.members.fetch(targetUser.id).catch(() => null);
+        if (targetMember?.voice.channelId === channel.id) {
+          await targetMember.voice.disconnect('TempVoice: getrennt durch Besitzer');
+          await interaction.update({ embeds: [createSuccessEmbed('🔇 Getrennt', `${targetUser} wurde aus dem Kanal getrennt.`)], components: [] });
+        } else {
+          await interaction.update({ embeds: [createErrorEmbed('Nicht im Kanal', `${targetUser} ist nicht in diesem Kanal.`)], components: [] });
+        }
+
+      } else if (aktion === 'tempvoice_block') {
+        await channel.permissionOverwrites.edit(targetUser.id, { Connect: false });
+        const targetMember = await channel.guild.members.fetch(targetUser.id).catch(() => null);
+        if (targetMember?.voice.channelId === channel.id) {
+          await targetMember.voice.disconnect('TempVoice: blockiert');
+        }
+        await interaction.update({ embeds: [createSuccessEmbed('🚫 Blockiert', `${targetUser} wurde blockiert und kann den Kanal nicht mehr betreten.`)], components: [] });
+
+      } else if (aktion === 'tempvoice_unblock') {
+        await channel.permissionOverwrites.delete(targetUser.id);
+        await interaction.update({ embeds: [createSuccessEmbed('✅ Entblockiert', `Die Sperre für ${targetUser} wurde aufgehoben.`)], components: [] });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      await interaction.update({ embeds: [createErrorEmbed('Fehler', msg)], components: [] });
+    }
+  }
+
+  private async handleTempVoiceModal(interaction: ModalSubmitInteraction): Promise<void> {
+    const member = interaction.member as GuildMember;
+    const db = getDatabase();
+    const tempRow = db.prepare('SELECT * FROM temp_voice_channels WHERE channel_id = ?')
+      .get(interaction.channelId!) as { owner_id: string } | undefined;
+
+    if (!tempRow) {
+      await interaction.reply({ embeds: [createErrorEmbed('Fehler', 'Kein TempVoice-Kanal.')], ephemeral: true });
+      return;
+    }
+    if (tempRow.owner_id !== interaction.user.id && !hasAdminPermission(member)) {
+      await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur der Besitzer kann das ändern.')], ephemeral: true });
+      return;
+    }
+
+    const channel = interaction.channel as VoiceChannel;
+
+    if (interaction.customId === 'modal_tempvoice_rename') {
+      const name = interaction.fields.getTextInputValue('name').trim();
+      await channel.setName(name);
+      db.prepare('UPDATE temp_voice_channels SET channel_name = ? WHERE channel_id = ?').run(name, interaction.channelId!);
+      await interaction.reply({ embeds: [createSuccessEmbed('✏️ Umbenannt', `Kanal heißt jetzt **${name}**.`)], ephemeral: true });
+      return;
+    }
+
+    if (interaction.customId === 'modal_tempvoice_limit') {
+      const limit = Math.min(99, Math.max(0, parseInt(interaction.fields.getTextInputValue('limit')) || 0));
+      await channel.setUserLimit(limit);
+      await interaction.reply({
+        embeds: [createSuccessEmbed('👥 Benutzerlimit gesetzt', limit === 0 ? 'Der Kanal hat jetzt **kein Limit**.' : `Der Kanal ist auf **${limit} Benutzer** begrenzt.`)],
+        ephemeral: true,
+      });
+      return;
+    }
   }
 }
 
