@@ -28,21 +28,21 @@ export class WelcomeService {
 
       const embed = new EmbedBuilder()
         .setColor(config.colors.success as ColorResolvable)
-        .setTitle('👋 Willkommen auf dem Deutschen RP Server!')
+        .setTitle('🇩🇪 Willkommen beim Deutschen RP Server!')
         .setDescription(
-          `Hey ${member}, schön dass du da bist!\n\n` +
-          `Du bist unser **${memberCount}.** Mitglied. 🎉\n\n` +
-          '📋 Bitte lies dir die **Regeln** durch\n' +
-          '🎭 Hol dir deine **Rollen** im Rollen-Menü\n' +
-          '❓ Bei Fragen wende dich an das Team\n\n' +
-          'Viel Spaß beim Roleplay!'
+          `Willkommen, ${member}! 👋\n\n` +
+          'Schön, dass du den Weg zu uns gefunden hast!\n\n' +
+          'Der Deutsche RP Server ist ein deutscher Roblox-Roleplay-Server mit ' +
+          'verschiedenen Fraktionen und einer aktiven Community.\n\n' +
+          '⚖️ **Justiz**\n' +
+          '🚓 **Polizei**\n' +
+          '🚒 **Feuerwehr**\n' +
+          '🚑 **Rettungsdienst**\n\n' +
+          'Bevor du loslegst, lies bitte unsere Regeln und hole dir deine benötigten Rollen.\n\n' +
+          'Wir wünschen dir viel Spaß beim Roleplay! 🇩🇪'
         )
         .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
-        .addFields(
-          { name: '👤 Benutzer', value: `${member.user.tag}`, inline: true },
-          { name: '📅 Account erstellt', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
-        )
-        .setFooter({ text: `Deutscher RP Server • ${memberCount} Mitglieder` })
+        .setFooter({ text: `Deutscher RP Server • Roleplay • Community • ${memberCount} Mitglieder` })
         .setTimestamp();
 
       await (channel as TextChannel).send({
