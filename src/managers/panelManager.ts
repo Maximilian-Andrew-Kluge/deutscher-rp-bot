@@ -719,8 +719,8 @@ export class PanelManager {
           beschuldigter, robloxName || null, robloxId || null,
           geburtsdatum || null, fraktion || null);
 
-      // Modal 1 kommt vom öffentlichen Panel-Button → immer neue ephemeral Nachricht
-      const sel = this.buildVerfahrenSelect1();
+      // Modal 1 kommt vom öffentlichen Panel-Button → direkt zur Vorwurf-Auswahl
+      const sel = this.buildVerfahrenSelect2();
       await interaction.reply({
         embeds: sel.embeds,
         components: sel.components as never,

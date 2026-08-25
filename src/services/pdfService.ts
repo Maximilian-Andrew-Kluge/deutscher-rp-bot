@@ -75,12 +75,8 @@ export async function generateJustizaktePDF(
       { label: 'ID',                   value: verfahren.roblox_id       || '', w: CONTENT_W * 0.3 },
     ]);
 
-    // Sektion 4: Verfahren
-    y = drawSection(doc, y + 8, '4', 'VERFAHREN');
-    y = drawFieldRow(doc, y, [
-      { label: 'VERFAHRENSART',       value: verfahren.verfahrensart          || '', w: CONTENT_W * 0.55 },
-      { label: 'ZUSTÄNDIGES GERICHT', value: verfahren.zustaendiges_gericht   || '', w: CONTENT_W * 0.45 },
-    ]);
+    // Sektion 4: Zuständigkeiten (ohne Verfahrensart/Gericht)
+    y = drawSection(doc, y + 8, '4', 'ZUSTÄNDIGKEITEN');
     y = drawFieldRow(doc, y, [
       { label: 'RICHTER',       value: verfahren.richter       || '', w: CONTENT_W * 0.33 },
       { label: 'STAATSANWALT',  value: verfahren.staatsanwalt  || '', w: CONTENT_W * 0.33 },
