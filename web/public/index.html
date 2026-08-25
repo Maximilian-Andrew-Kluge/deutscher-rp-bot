@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deutscher RP — Admin Panel</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<!-- ═══════════════════════════ LOGIN PAGE ═══════════════════════════════ -->
+<div id="login-page" class="login-page hidden">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="logo-icon">🛡️</span>
+      <h1>Deutscher RP</h1>
+      <p>Admin Panel</p>
+    </div>
+    <form id="login-form">
+      <div class="form-group">
+        <label>Benutzername</label>
+        <input type="text" id="login-username" placeholder="admin" autocomplete="username" required />
+      </div>
+      <div class="form-group">
+        <label>Passwort</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" required />
+      </div>
+      <div id="login-error" class="alert alert-error hidden"></div>
+      <button type="submit" class="btn btn-primary btn-full" id="login-btn">
+        <span class="btn-text">Anmelden</span>
+        <span class="btn-spinner hidden">⏳</span>
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ APP SHELL ════════════════════════════════ -->
+<div id="app" class="app hidden">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-logo">🛡️</span>
+      <div class="sidebar-title">
+        <strong>Deutscher RP</strong>
+        <small>Admin Panel</small>
+      </div>
+      <button class="sidebar-close" id="sidebar-close">✕</button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Übersicht</div>
+      <a href="#dashboard" class="nav-item active" data-page="dashboard">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+
+      <div class="nav-section-label">Moderation</div>
+      <a href="#spieler" class="nav-item" data-page="spieler">
+        <span class="nav-icon">👥</span> Spieler
+      </a>
+      <a href="#warns" class="nav-item" data-page="warns">
+        <span class="nav-icon">⚠️</span> Verwarnungen
+      </a>
+      <a href="#modlogs" class="nav-item" data-page="modlogs">
+        <span class="nav-icon">🔨</span> Mod-Logs
+      </a>
+      <a href="#chat" class="nav-item" data-page="chat">
+        <span class="nav-icon">🧹</span> Chat leeren
+      </a>
+
+      <div class="nav-section-label">Justiz</div>
+      <a href="#verfahren" class="nav-item" data-page="verfahren">
+        <span class="nav-icon">⚖️</span> Verfahren
+      </a>
+      <a href="#akten" class="nav-item" data-page="akten">
+        <span class="nav-icon">📁</span> Akten
+      </a>
+
+      <div class="nav-section-label">Konfiguration</div>
+      <a href="#rollen" class="nav-item" data-page="rollen">
+        <span class="nav-icon">🎭</span> Rollen
+      </a>
+      <a href="#settings" class="nav-item" data-page="settings">
+        <span class="nav-icon">⚙️</span> Einstellungen
+      </a>
+
+      <div class="nav-section-label">System</div>
+      <a href="#logs" class="nav-item" data-page="logs">
+        <span class="nav-icon">📋</span> Admin-Logs
+      </a>
+      <a href="#admins" class="nav-item" data-page="admins" id="nav-admins">
+        <span class="nav-icon">👤</span> Admins
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-badge">
+        <span class="user-avatar" id="user-avatar">A</span>
+        <div class="user-info">
+          <strong id="user-name">admin</strong>
+          <small id="user-role">superadmin</small>
+        </div>
+      </div>
+      <button class="btn-logout" id="logout-btn" title="Abmelden">⏻</button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Topbar -->
+    <header class="topbar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div class="topbar-right">
+        <div class="status-dot" id="bot-status-dot" title="Bot Status"></div>
+        <span id="bot-status-text" class="status-text">Prüfe...</span>
+        <span class="ping-badge" id="ping-badge">— ms</span>
+      </div>
+    </header>
+
+    <!-- Pages -->
+    <div class="page-content">
+
+      <!-- ── DASHBOARD ── -->
+      <section id="page-dashboard" class="page active">
+        <div class="page-header">
+          <h2>Dashboard</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadDashboard()">🔄 Aktualisieren</button>
+        </div>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card loading">
+            <div class="stat-icon">⚖️</div>
+            <div class="stat-body">
+              <div class="stat-value" id="stat-verfahren">—</div>
+              <div class="stat-label">Verfahren gesamt</div>
+            </div>
+          </div>
+          <div class="stat-card loading">
+            <div class="stat-icon">🔴</div>
+            <div class="stat-body">
+              <div class="stat-value" id="stat-offen">—</div>
+              <div class="stat-label">Offene Verfahren</div>
+            </div>
+          </div>
+          <div class="stat-card loading">
+            <div class="stat-icon">📁</div>
+            <div class="stat-body">
+              <div class="stat-value" id="stat-akten">—</div>
+              <div class="stat-label">Akten</div>
+            </div>
+          </div>
+          <div class="stat-card loading">
+            <div class="stat-icon">🎭</div>
+            <div class="stat-body">
+              <div class="stat-value" id="stat-rollen">—</div>
+              <div class="stat-label">Rollen konfiguriert</div>
+            </div>
+          </div>
+          <div class="stat-card loading">
+            <div class="stat-icon">👥</div>
+            <div class="stat-body">
+              <div class="stat-value" id="stat-members">—</div>
+              <div class="stat-label">Servermitglieder</div>
+            </div>
+          </div>
+          <div class="stat-card loading">
+            <div class="stat-icon">📡</div>
+            <div class="stat-body">
+              <div class="stat-value" id="stat-ping">—</div>
+              <div class="stat-label">Bot Ping</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="card-header">🌐 Server Info</div>
+            <div class="card-body" id="server-info">
+              <div class="info-row"><span>Server</span><strong id="info-guild">—</strong></div>
+              <div class="info-row"><span>Bot Status</span><strong id="info-status">—</strong></div>
+              <div class="info-row"><span>Ping</span><strong id="info-ping">—</strong></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">📋 Letzte Logs</div>
+            <div class="card-body" id="recent-logs">
+              <div class="loading-text">Lädt...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── ROLLEN ── -->
+      <section id="page-rollen" class="page">
+        <div class="page-header">
+          <h2>Rollen-Konfiguration</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadRollen()">🔄 Aktualisieren</button>
+        </div>
+        <p class="page-desc">Weise jeder Bot-Berechtigung eine Discord-Rolle zu. Änderungen werden sofort aktiv.</p>
+
+        <div id="rollen-kategorien"></div>
+      </section>
+
+      <!-- ── EINSTELLUNGEN ── -->
+      <section id="page-settings" class="page">
+        <div class="page-header">
+          <h2>Server-Einstellungen</h2>
+        </div>
+        <p class="page-desc">Konfiguriere Kanäle und Kategorien für den Bot.</p>
+
+        <form id="settings-form" class="settings-form">
+          <div class="settings-grid">
+            <div class="card">
+              <div class="card-header">⚖️ Justiz-Kanäle</div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label>📋 Verfahrens-Kanal (Forum)</label>
+                  <select name="verfahren_channel_id" id="sel-verfahren" class="channel-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>📁 Akten-Kanal (Forum)</label>
+                  <select name="akten_channel_id" id="sel-akten" class="channel-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>📣 Justiz-Ausbildung</label>
+                  <select name="justiz_ausbildung_channel_id" id="sel-justiz-aus" class="channel-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">🚓 Behörden-Ausbildung</div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label>🚓 Polizei-Ausbildung</label>
+                  <select name="polizei_ausbildung_channel_id" id="sel-pol-aus" class="channel-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>🚒 Feuerwehr-Ausbildung</label>
+                  <select name="feuerwehr_ausbildung_channel_id" id="sel-fw-aus" class="channel-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>🚑 Rettungsdienst-Ausbildung</label>
+                  <select name="rettungsdienst_ausbildung_channel_id" id="sel-rd-aus" class="channel-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">🎙️ Voice & Log</div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label>➕ Voice-Erstell-Kanal</label>
+                  <select name="voice_create_channel_id" id="sel-voice-create" class="channel-select voice-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>📂 Voice-Kategorie</label>
+                  <select name="voice_category_id" id="sel-voice-cat" class="channel-select cat-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>📋 Log-Kanal</label>
+                  <select name="log_channel_id" id="sel-log" class="channel-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>📣 Ankündigungs-Kanal</label>
+                  <select name="ankuendigung_channel_id" id="sel-ankuend" class="channel-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="settings-msg" class="alert hidden"></div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Einstellungen speichern</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── VERFAHREN ── -->
+      <section id="page-verfahren" class="page">
+        <div class="page-header">
+          <h2>Verfahren</h2>
+          <div class="page-header-actions">
+            <input type="text" id="verfahren-search" placeholder="Suchen..." class="search-input" />
+            <button class="btn btn-secondary btn-sm" onclick="loadVerfahren()">🔄</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="verfahren-table">
+            <thead>
+              <tr>
+                <th>Aktenzeichen</th>
+                <th>Beschuldigter</th>
+                <th>Vorwurf</th>
+                <th>Status</th>
+                <th>Erstellt am</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="verfahren-tbody">
+              <tr><td colspan="6" class="loading-text">Lädt...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="verfahren-pagination"></div>
+      </section>
+
+      <!-- ── AKTEN ── -->
+      <section id="page-akten" class="page">
+        <div class="page-header">
+          <h2>Akten</h2>
+          <div class="page-header-actions">
+            <input type="text" id="akten-search" placeholder="Suchen..." class="search-input" />
+            <button class="btn btn-secondary btn-sm" onclick="loadAkten()">🔄</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="akten-table">
+            <thead>
+              <tr>
+                <th>Aktenzeichen</th>
+                <th>Status</th>
+                <th>Erstellt von</th>
+                <th>Erstellt am</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="akten-tbody">
+              <tr><td colspan="5" class="loading-text">Lädt...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="akten-pagination"></div>
+      </section>
+
+      <!-- ── LOGS ── -->
+      <section id="page-logs" class="page">
+        <div class="page-header">
+          <h2>Admin-Logs</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadLogs()">🔄 Aktualisieren</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Zeit</th>
+                <th>Benutzer</th>
+                <th>Aktion</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="logs-tbody">
+              <tr><td colspan="4" class="loading-text">Lädt...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── ADMINS ── -->
+      <section id="page-admins" class="page">
+        <div class="page-header">
+          <h2>Admin-Benutzer</h2>
+          <button class="btn btn-primary btn-sm" onclick="showAddAdmin()">+ Hinzufügen</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Benutzername</th>
+                <th>Rolle</th>
+                <th>Erstellt am</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="admins-tbody">
+              <tr><td colspan="4" class="loading-text">Lädt...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Add Admin Modal -->
+        <div class="modal hidden" id="add-admin-modal">
+          <div class="modal-backdrop" onclick="closeModal('add-admin-modal')"></div>
+          <div class="modal-box">
+            <div class="modal-header">
+              <h3>Admin hinzufügen</h3>
+              <button onclick="closeModal('add-admin-modal')">✕</button>
+            </div>
+            <form id="add-admin-form">
+              <div class="form-group">
+                <label>Benutzername</label>
+                <input type="text" id="new-admin-username" required />
+              </div>
+              <div class="form-group">
+                <label>Passwort</label>
+                <input type="password" id="new-admin-password" required minlength="8" />
+              </div>
+              <div class="form-group">
+                <label>Rolle</label>
+                <select id="new-admin-role">
+                  <option value="admin">admin</option>
+                  <option value="superadmin">superadmin</option>
+                </select>
+              </div>
+              <div id="add-admin-error" class="alert alert-error hidden"></div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('add-admin-modal')">Abbrechen</button>
+                <button type="submit" class="btn btn-primary">Erstellen</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── SPIELER ── -->
+      <section id="page-spieler" class="page">
+        <div class="page-header">
+          <h2>Spieler-Übersicht</h2>
+          <div class="page-header-actions">
+            <input type="text" id="spieler-search" placeholder="Name, ID..." class="search-input" />
+            <button class="btn btn-secondary btn-sm" onclick="loadSpieler()">🔄</button>
+          </div>
+        </div>
+        <div class="spieler-grid" id="spieler-grid">
+          <div class="loading-text">Lädt Mitglieder...</div>
+        </div>
+        <div class="pagination" id="spieler-pagination"></div>
+
+        <!-- Spieler-Detail Modal -->
+        <div class="modal hidden" id="spieler-modal">
+          <div class="modal-backdrop" onclick="closeModal('spieler-modal')"></div>
+          <div class="modal-box modal-lg">
+            <div class="modal-header">
+              <h3 id="spieler-modal-title">Spieler</h3>
+              <button onclick="closeModal('spieler-modal')">✕</button>
+            </div>
+            <div id="spieler-modal-body">Lädt...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── VERWARNUNGEN ── -->
+      <section id="page-warns" class="page">
+        <div class="page-header">
+          <h2>Verwarnungen</h2>
+          <div class="page-header-actions">
+            <input type="text" id="warns-search" placeholder="Name, Grund..." class="search-input" />
+            <button class="btn btn-secondary btn-sm" onclick="loadWarns()">🔄</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#ID</th>
+                <th>Spieler</th>
+                <th>Grund</th>
+                <th>Moderator</th>
+                <th>Datum</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
+            <tbody id="warns-tbody">
+              <tr><td colspan="6" class="loading-text">Lädt...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="warns-pagination"></div>
+      </section>
+
+      <!-- ── MOD-LOGS ── -->
+      <section id="page-modlogs" class="page">
+        <div class="page-header">
+          <h2>Moderations-Logs</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadModLogs()">🔄 Aktualisieren</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Zeit</th>
+                <th>Moderator</th>
+                <th>Aktion</th>
+                <th>Ziel</th>
+                <th>Grund</th>
+              </tr>
+            </thead>
+            <tbody id="modlogs-tbody">
+              <tr><td colspan="5" class="loading-text">Lädt...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="modlogs-pagination"></div>
+      </section>
+
+      <!-- ── CHAT LEEREN ── -->
+      <section id="page-chat" class="page">
+        <div class="page-header">
+          <h2>🧹 Chat leeren</h2>
+        </div>
+        <p class="page-desc">Lösche Nachrichten aus einem Kanal direkt über das Admin-Panel. Nachrichten älter als 14 Tage können nicht gelöscht werden (Discord-Limit).</p>
+
+        <div class="card" style="max-width:500px">
+          <div class="card-header">Nachrichten löschen</div>
+          <div class="card-body">
+            <form id="chat-leeren-form">
+              <div class="form-group">
+                <label>Kanal</label>
+                <select id="chat-kanal-select" required>
+                  <option value="">— Kanal wählen —</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Anzahl Nachrichten <small style="color:var(--text-muted)">(1–100)</small></label>
+                <input type="number" id="chat-menge" min="1" max="100" value="10" required />
+              </div>
+              <div id="chat-msg" class="alert hidden"></div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-danger">🧹 Nachrichten löschen</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="card" style="max-width:500px;margin-top:16px">
+          <div class="card-header">📋 Letzte Chat-Löschungen</div>
+          <div class="card-body" id="chat-log-recent">
+            <div class="loading-text">Lädt...</div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /page-content -->
+  </main>
+</div><!-- /app -->
+
+<!-- Toast-Container -->
+<div id="toast-container"></div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

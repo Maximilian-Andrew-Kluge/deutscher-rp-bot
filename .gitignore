@@ -1,0 +1,32 @@
+# Abhängigkeiten
+node_modules/
+
+# Kompiliertes JavaScript
+dist/
+
+# Umgebungsvariablen (NIEMALS committen!)
+.env
+
+# Datenbank
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Temporäre Dateien
+*.tmp
+check_db.js
