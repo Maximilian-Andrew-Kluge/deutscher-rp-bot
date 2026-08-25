@@ -265,7 +265,8 @@ async function loadRollen() {
 
 function renderRollen(data) {
   const container = document.getElementById('rollen-kategorien');
-  const { rollen, discordRollen } = data;
+  const rollen = data.rollen || [];
+  const discordRollen = data.discordRollen || [];
   const rollenMap = {};
   rollen.forEach(r => rollenMap[r.key] = r);
 
@@ -343,7 +344,10 @@ async function loadSettings() {
     const data = await api('GET', '/api/settings');
     if (!data) return;
 
-    const { settings, channels, categories, voiceChannels } = data;
+    const settings = data.settings || {};
+    const channels = data.channels || [];
+    const categories = data.categories || [];
+    const voiceChannels = data.voiceChannels || [];
 
     // Text/Forum-Kanäle
     const textOpts = '<option value="">— Nicht gesetzt —</option>' +
