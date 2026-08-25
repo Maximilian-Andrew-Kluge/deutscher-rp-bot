@@ -182,8 +182,9 @@ export function createApiRouter(client: Client): Router {
     const offset = (page - 1) * limit;
     const search = (req.query.search as string || '').trim();
 
-    let query = 'SELECT * FROM verfahren WHERE guild_id = ?';
-    let countQuery = 'SELECT COUNT(*) as c FROM verfahren WHERE guild_id = ?';
+    // Nur aktive Verfahren — abgeschlossene/archivierte sind in den Akten
+    let query = "SELECT * FROM verfahren WHERE guild_id = ? AND status != 'abgeschlossen' AND archiviert = 0";
+    let countQuery = "SELECT COUNT(*) as c FROM verfahren WHERE guild_id = ? AND status != 'abgeschlossen' AND archiviert = 0";
     const params: unknown[] = [guildId];
 
     if (search) {
