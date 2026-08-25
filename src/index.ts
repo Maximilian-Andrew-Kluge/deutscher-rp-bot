@@ -1,9 +1,10 @@
-import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, GuildMember } from 'discord.js';
 import dotenv from 'dotenv';
 import { CommandManager } from './managers/commandManager';
 import { PanelManager } from './managers/panelManager';
 import { runMigrations } from './database/migrations';
 import { VoiceService } from './services/voiceService';
+import { WelcomeService } from './services/welcomeService';
 import { initDatabase, closeDatabase } from './database/database';
 import { config } from './config/config';
 import { startWebServer } from './web/server';
@@ -75,6 +76,18 @@ async function main(): Promise<void> {
     } catch (err) {
       console.error('Interaction-Fehler:', err);
     }
+  });
+
+  // Event: Neues Mitglied tritt bei → Willkommensnachricht
+  client.on('guildMemberAdd', async (member) => {
+    const welcomeService = new WelcomeService(client);
+    await welcomeService.handleMemberJoin(member);
+  });
+
+  // Event: Mitglied verlässt den Server → Abschiedsnachricht
+  client.on('guildMemberRemove', async (member) => {
+    const welcomeService = new WelcomeService(client);
+    await welcomeService.handleMemberLeave(member as GuildMember);
   });
 
   // Event: Voice-Status Änderung

@@ -17,6 +17,7 @@ export const data = new SlashCommandBuilder()
     .addChannelOption(o => o.setName('akten').setDescription('Forum-Kanal für Akten').setRequired(false).addChannelTypes(ChannelType.GuildForum))
     .addChannelOption(o => o.setName('logs').setDescription('Text-Kanal für Logs').setRequired(false).addChannelTypes(ChannelType.GuildText))
     .addChannelOption(o => o.setName('ankuendigung').setDescription('Ankündigungs-Kanal').setRequired(false).addChannelTypes(ChannelType.GuildText))
+    .addChannelOption(o => o.setName('willkommen').setDescription('Willkommens-Kanal für neue Mitglieder').setRequired(false).addChannelTypes(ChannelType.GuildText))
   )
   .addSubcommand(sub => sub
     .setName('ausbildung')
@@ -84,8 +85,9 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
     const akten = interaction.options.getChannel('akten');
     const logs = interaction.options.getChannel('logs');
     const ankuendigung = interaction.options.getChannel('ankuendigung');
+    const willkommen = interaction.options.getChannel('willkommen');
 
-    if (!verfahren && !akten && !logs && !ankuendigung) {
+    if (!verfahren && !akten && !logs && !ankuendigung && !willkommen) {
       await interaction.reply({ embeds: [createErrorEmbed('Nichts angegeben', 'Bitte gib mindestens einen Kanal an.')], ephemeral: true });
       return;
     }
@@ -106,6 +108,10 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
     if (ankuendigung) {
       db.prepare(`UPDATE server_settings SET ankuendigung_channel_id = ? WHERE guild_id = ?`).run(ankuendigung.id, interaction.guildId!);
       updates.push(`✅ **Ankündigungs-Kanal:** ${ankuendigung}`);
+    }
+    if (willkommen) {
+      db.prepare(`UPDATE server_settings SET willkommen_channel_id = ? WHERE guild_id = ?`).run(willkommen.id, interaction.guildId!);
+      updates.push(`✅ **Willkommens-Kanal:** ${willkommen}`);
     }
 
     await interaction.reply({ embeds: [createSuccessEmbed('Kanäle konfiguriert', updates.join('\n'))], ephemeral: true });

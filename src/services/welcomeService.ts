@@ -1,0 +1,81 @@
+import {
+  Client, GuildMember, TextChannel, EmbedBuilder, ColorResolvable,
+} from 'discord.js';
+import { getDatabase } from '../database/database';
+import { config } from '../config/config';
+
+export class WelcomeService {
+  private client: Client;
+
+  constructor(client: Client) {
+    this.client = client;
+  }
+
+  /** Wird aufgerufen wenn ein neues Mitglied dem Server beitritt */
+  async handleMemberJoin(member: GuildMember): Promise<void> {
+    try {
+      const db = getDatabase();
+      const settings = db.prepare(
+        'SELECT willkommen_channel_id FROM server_settings WHERE guild_id = ?'
+      ).get(member.guild.id) as { willkommen_channel_id: string | null } | undefined;
+
+      if (!settings?.willkommen_channel_id) return;
+
+      const channel = await this.client.channels.fetch(settings.willkommen_channel_id).catch(() => null);
+      if (!channel || !channel.isTextBased()) return;
+
+      const memberCount = member.guild.memberCount;
+
+      const embed = new EmbedBuilder()
+        .setColor(config.colors.success as ColorResolvable)
+        .setTitle('👋 Willkommen auf dem Deutschen RP Server!')
+        .setDescription(
+          `Hey ${member}, schön dass du da bist!\n\n` +
+          `Du bist unser **${memberCount}.** Mitglied. 🎉\n\n` +
+          '📋 Bitte lies dir die **Regeln** durch\n' +
+          '🎭 Hol dir deine **Rollen** im Rollen-Menü\n' +
+          '❓ Bei Fragen wende dich an das Team\n\n' +
+          'Viel Spaß beim Roleplay!'
+        )
+        .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+        .addFields(
+          { name: '👤 Benutzer', value: `${member.user.tag}`, inline: true },
+          { name: '📅 Account erstellt', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
+        )
+        .setFooter({ text: `Deutscher RP Server • ${memberCount} Mitglieder` })
+        .setTimestamp();
+
+      await (channel as TextChannel).send({
+        content: `${member}`,
+        embeds: [embed],
+      });
+    } catch (err) {
+      console.error('Fehler beim Senden der Willkommensnachricht:', err);
+    }
+  }
+
+  /** Optional: Abschiedsnachricht wenn jemand geht */
+  async handleMemberLeave(member: GuildMember): Promise<void> {
+    try {
+      const db = getDatabase();
+      const settings = db.prepare(
+        'SELECT willkommen_channel_id FROM server_settings WHERE guild_id = ?'
+      ).get(member.guild.id) as { willkommen_channel_id: string | null } | undefined;
+
+      if (!settings?.willkommen_channel_id) return;
+
+      const channel = await this.client.channels.fetch(settings.willkommen_channel_id).catch(() => null);
+      if (!channel || !channel.isTextBased()) return;
+
+      const name = member.user?.tag ?? member.displayName ?? 'Ein Mitglied';
+      const embed = new EmbedBuilder()
+        .setColor(config.colors.error as ColorResolvable)
+        .setDescription(`👋 **${name}** hat den Server verlassen.`)
+        .setTimestamp();
+
+      await (channel as TextChannel).send({ embeds: [embed] });
+    } catch (err) {
+      console.error('Fehler beim Senden der Abschiedsnachricht:', err);
+    }
+  }
+}

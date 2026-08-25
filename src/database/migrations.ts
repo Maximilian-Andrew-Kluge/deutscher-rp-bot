@@ -17,6 +17,7 @@ export function runMigrations(): void {
       rettungsdienst_ausbildung_channel_id TEXT,
       justiz_ausbildung_channel_id TEXT,
       ankuendigung_channel_id TEXT,
+      willkommen_channel_id TEXT,
       setup_complete INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
@@ -25,7 +26,8 @@ export function runMigrations(): void {
 
   // Fehlende Spalten in server_settings nachträglich hinzufügen (Migration)
   const settingsCols = ['polizei_ausbildung_channel_id', 'feuerwehr_ausbildung_channel_id',
-    'rettungsdienst_ausbildung_channel_id', 'justiz_ausbildung_channel_id', 'ankuendigung_channel_id'];
+    'rettungsdienst_ausbildung_channel_id', 'justiz_ausbildung_channel_id', 'ankuendigung_channel_id',
+    'willkommen_channel_id'];
   for (const col of settingsCols) {
     try {
       db.exec(`ALTER TABLE server_settings ADD COLUMN ${col} TEXT`);
