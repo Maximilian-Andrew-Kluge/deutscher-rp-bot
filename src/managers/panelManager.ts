@@ -719,6 +719,7 @@ export class PanelManager {
           beschuldigter, robloxName || null, robloxId || null,
           geburtsdatum || null, fraktion || null);
 
+      // Modal 1 kommt vom öffentlichen Panel-Button → immer neue ephemeral Nachricht
       const sel = this.buildVerfahrenSelect1();
       await interaction.reply({
         embeds: sel.embeds,
@@ -747,9 +748,13 @@ export class PanelManager {
         .run(tatzeit || null, tatort || null, sachverhalt, beweise || null,
           interaction.guildId!, interaction.user.id);
 
-      // Zeige Select 3 (Beteiligte)
+      // Zeige Select 3 (Beteiligte) — update() ersetzt die vorherige Nachricht
       const sel = this.buildVerfahrenSelect3(interaction.guildId!);
-      await interaction.reply({ embeds: sel.embeds, components: sel.components as never, ephemeral: true });
+      if (interaction.isFromMessage()) {
+        await interaction.update({ embeds: sel.embeds, components: sel.components as never });
+      } else {
+        await interaction.reply({ embeds: sel.embeds, components: sel.components as never, ephemeral: true });
+      }
     } catch (err) {
       console.error('Modal2 Fehler:', err);
       if (!interaction.replied && !interaction.deferred)
@@ -849,13 +854,21 @@ export class PanelManager {
       );
 
       if (interaction.isModalSubmit()) {
-        if (!interaction.replied && !interaction.deferred) {
+        // Von einer ephemeral Nachricht (Button) → update ersetzt sie
+        if (interaction.isFromMessage()) {
+          await interaction.update({ embeds: [successEmbed], components: [] });
+        } else if (!interaction.replied && !interaction.deferred) {
           await interaction.reply({ embeds: [successEmbed], components: [], ephemeral: true });
         } else {
           await interaction.editReply({ embeds: [successEmbed], components: [] });
         }
       } else {
-        await interaction.editReply({ embeds: [successEmbed], components: [] });
+        // Button-Interaction (verfahren_erstellen_direkt) → update
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({ embeds: [successEmbed], components: [] });
+        } else {
+          await interaction.update({ embeds: [successEmbed], components: [] });
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
