@@ -1612,9 +1612,9 @@ export class PanelManager {
       if (!check) return;
       const modal = new ModalBuilder().setCustomId('modal_tempvoice_rename').setTitle('Kanal umbenennen')
         .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId('name').setLabel('Neuer Kanalname')
-            .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(100)
-            .setPlaceholder('z.B. 🎮 Gaming Lounge')
+          new TextInputBuilder().setCustomId('name').setLabel('Kanalname (Präfix 🎭│ wird automatisch)')
+            .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(90)
+            .setPlaceholder('z.B. Gaming Lounge')
         ));
       await interaction.showModal(modal);
       return;
@@ -1770,7 +1770,10 @@ export class PanelManager {
     const channel = interaction.channel as VoiceChannel;
 
     if (interaction.customId === 'modal_tempvoice_rename') {
-      const name = interaction.fields.getTextInputValue('name').trim();
+      let eingabe = interaction.fields.getTextInputValue('name').trim();
+      // Falls User das Präfix selbst mit eingegeben hat, entfernen wir es
+      eingabe = eingabe.replace(/^🎭│\s*/, '').trim();
+      const name = `🎭│ ${eingabe}`;
       await channel.setName(name);
       db.prepare('UPDATE temp_voice_channels SET channel_name = ? WHERE channel_id = ?').run(name, interaction.channelId!);
       await interaction.reply({ embeds: [createSuccessEmbed('✏️ Umbenannt', `Kanal heißt jetzt **${name}**.`)], ephemeral: true });
