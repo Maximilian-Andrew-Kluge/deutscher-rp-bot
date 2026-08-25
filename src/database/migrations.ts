@@ -27,7 +27,7 @@ export function runMigrations(): void {
   // Fehlende Spalten in server_settings nachträglich hinzufügen (Migration)
   const settingsCols = ['polizei_ausbildung_channel_id', 'feuerwehr_ausbildung_channel_id',
     'rettungsdienst_ausbildung_channel_id', 'justiz_ausbildung_channel_id', 'ankuendigung_channel_id',
-    'willkommen_channel_id'];
+    'willkommen_channel_id', 'live_channel_id'];
   for (const col of settingsCols) {
     try {
       db.exec(`ALTER TABLE server_settings ADD COLUMN ${col} TEXT`);
@@ -226,6 +226,20 @@ export function runMigrations(): void {
       moderator_name TEXT NOT NULL,
       grund TEXT NOT NULL,
       erstellt_am TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // TikTok Live-Benachrichtigungen — überwachte Streamer
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tiktok_streamer (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      tiktok_username TEXT NOT NULL,
+      anzeige_name TEXT,
+      ist_live INTEGER DEFAULT 0,
+      hinzugefuegt_von TEXT,
+      erstellt_am TEXT DEFAULT (datetime('now')),
+      UNIQUE(guild_id, tiktok_username)
     )
   `);
 

@@ -5,6 +5,7 @@ import { PanelManager } from './managers/panelManager';
 import { runMigrations } from './database/migrations';
 import { VoiceService } from './services/voiceService';
 import { WelcomeService } from './services/welcomeService';
+import { TikTokService } from './services/tiktokService';
 import { initDatabase, closeDatabase } from './database/database';
 import { config } from './config/config';
 import { startWebServer } from './web/server';
@@ -61,6 +62,10 @@ async function main(): Promise<void> {
 
     // Admin-Panel starten
     await startWebServer(readyClient);
+
+    // TikTok Live-Überwachung starten
+    const tiktokService = new TikTokService(readyClient);
+    tiktokService.start();
 
     console.log('✅ Bot ist vollständig bereit!\n');
   });
