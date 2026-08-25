@@ -196,7 +196,7 @@ async function loadDashboard() {
     document.getElementById('stat-offen').textContent = statsData.offeneVerfahren;
     document.getElementById('stat-akten').textContent = statsData.totalAkten;
     document.getElementById('stat-rollen').textContent = `${statsData.konfigurierteRollen}/${statsData.totalRollen}`;
-    document.getElementById('stat-members').textContent = statsData.memberCount.toLocaleString('de');
+    document.getElementById('stat-members').textContent = (statsData.memberCount ?? 0).toLocaleString('de');
     document.getElementById('stat-ping').textContent = `${statsData.botPing} ms`;
     document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('loading'));
 
