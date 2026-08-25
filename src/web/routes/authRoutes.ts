@@ -36,10 +36,15 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
   db.prepare('INSERT INTO admin_logs (username, aktion, details) VALUES (?, ?, ?)')
     .run(user.username, 'login', `IP: ${req.ip}`);
 
+  // secure nur wenn explizit HTTPS genutzt wird (ADMIN_HTTPS=true)
+  // Bei Zugriff über http:// (z.B. lokales Netzwerk) muss secure=false sein,
+  // sonst wird das Cookie vom Browser verworfen.
+  const useSecure = process.env.ADMIN_HTTPS === 'true';
+
   res
     .cookie('admin_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: useSecure,
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24h
     })

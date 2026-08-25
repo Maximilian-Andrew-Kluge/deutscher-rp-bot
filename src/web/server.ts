@@ -18,8 +18,10 @@ export async function startWebServer(client: Client): Promise<void> {
   const app = express();
 
   // ── Middleware ───────────────────────────────────────────────────────────
+  // Same-Origin Requests (Panel + API auf gleichem Host/Port) immer erlauben.
+  // Bei fehlender Origin (same-origin fetch) reflektieren wir sie zurück.
   app.use(cors({
-    origin: process.env.ADMIN_ORIGIN || `http://localhost:${WEB_PORT}`,
+    origin: (origin, callback) => callback(null, origin || true),
     credentials: true,
   }));
   app.use(express.json());
