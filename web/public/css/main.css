@@ -637,3 +637,29 @@ a:hover { text-decoration: underline; }
   .stats-grid { grid-template-columns: 1fr; }
   .login-box { margin: 16px; padding: 28px 20px; }
 }
+
+/* ── Spieler-Grid ──────────────────────────────────────────────── */
+.spieler-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.spieler-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: border-color .15s, transform .1s;
+}
+.spieler-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.spieler-avatar { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; }
+.spieler-info { min-width: 0; flex: 1; }
+.spieler-info strong { display: block; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spieler-info small { color: var(--text-secondary); font-size: .72rem; }
+.spieler-badges { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.modal-lg { max-width: 560px; }

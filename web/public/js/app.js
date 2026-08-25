@@ -77,6 +77,11 @@ function navigate(page) {
     case 'akten':     loadAkten();     break;
     case 'logs':      loadLogs();      break;
     case 'admins':    loadAdmins();    break;
+    case 'spieler':   loadSpieler();   break;
+    case 'warns':     loadWarns();     break;
+    case 'modlogs':   loadModLogs();   break;
+    case 'chat':      loadChat();      break;
+    case 'tiktok':    loadTikTok();    break;
   }
 
   // Sidebar auf Mobile schließen
@@ -362,7 +367,7 @@ async function loadSettings() {
       categories.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
 
     // Selects befüllen
-    const channelSelects = ['sel-verfahren','sel-akten','sel-log','sel-justiz-aus','sel-pol-aus','sel-fw-aus','sel-rd-aus','sel-ankuend'];
+    const channelSelects = ['sel-verfahren','sel-akten','sel-log','sel-justiz-aus','sel-pol-aus','sel-fw-aus','sel-rd-aus','sel-ankuend','sel-willkommen','sel-live'];
     channelSelects.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = textOpts;
@@ -384,6 +389,8 @@ async function loadSettings() {
       'sel-fw-aus':      'feuerwehr_ausbildung_channel_id',
       'sel-rd-aus':      'rettungsdienst_ausbildung_channel_id',
       'sel-ankuend':     'ankuendigung_channel_id',
+      'sel-willkommen':  'willkommen_channel_id',
+      'sel-live':        'live_channel_id',
       'sel-voice-create':'voice_create_channel_id',
       'sel-voice-cat':   'voice_category_id',
     };
@@ -674,5 +681,265 @@ function escHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// ── Init ─────────────────────────────────────────────────────────
+// ── Init (siehe Ende der Datei) ──
+
+// ════════════════════════════════════════════════════════════════
+// SPIELER
+// ════════════════════════════════════════════════════════════════
+let spielerSearchTimeout;
+async function loadSpieler(page = 1) {
+  const grid = document.getElementById('spieler-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="loading-text">Lädt Mitglieder...</div>';
+  const search = document.getElementById('spieler-search')?.value || '';
+  try {
+    const data = await api('GET', `/api/spieler?page=${page}&limit=24&search=${encodeURIComponent(search)}`);
+    if (!data) return;
+    if (!data.spieler || data.spieler.length === 0) {
+      grid.innerHTML = '<div class="loading-text">Keine Spieler gefunden</div>';
+      return;
+    }
+    grid.innerHTML = data.spieler.map(s => `
+      <div class="spieler-card" onclick="viewSpieler('${s.id}')">
+        <img src="${s.avatar}" class="spieler-avatar" alt="" />
+        <div class="spieler-info">
+          <strong>${escHtml(s.displayName)}</strong>
+          <small>${escHtml(s.tag)}</small>
+          <div class="spieler-badges">
+            ${s.warns > 0 ? `<span class="badge badge-strafverfahren">${s.warns} ⚠️</span>` : ''}
+            ${s.booster ? '<span class="badge badge-superadmin">💎</span>' : ''}
+            <span class="badge badge-admin">${s.rollenCount} Rollen</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    renderPagination('spieler-pagination', data.pages, page, loadSpieler);
+  } catch (err) {
+    grid.innerHTML = `<div class="loading-text">Fehler: ${escHtml(err.message)}</div>`;
+  }
+}
+
+async function viewSpieler(userId) {
+  try {
+    const d = await api('GET', `/api/spieler/${userId}`);
+    if (!d) return;
+    const rollen = (d.rollen || []).map(r => `<span class="badge badge-admin">${escHtml(r.name)}</span>`).join(' ') || '—';
+    const warns = (d.warns || []).map(w => `<div class="log-entry"><span class="log-time">#${w.id}</span><span>${escHtml(w.grund)}</span><span class="log-detail">${formatDate(w.erstellt_am)}</span></div>`).join('') || '<div class="loading-text">Keine Verwarnungen</div>';
+    document.getElementById('spieler-modal-title').textContent = d.tag;
+    document.getElementById('spieler-modal-body').innerHTML = `
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
+        <img src="${d.avatar}" style="width:80px;height:80px;border-radius:50%" alt="" />
+        <div>
+          <div class="info-row"><span>ID</span><strong>${d.id}</strong></div>
+          <div class="info-row"><span>Auf Server</span><strong>${d.aufServer ? '✅ Ja' : '❌ Nein'}</strong></div>
+          <div class="info-row"><span>Beigetreten</span><strong>${formatDate(d.joinedAt)}</strong></div>
+          <div class="info-row"><span>Account erstellt</span><strong>${formatDate(d.createdAt)}</strong></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header">🎭 Rollen (${(d.rollen||[]).length})</div><div class="card-body">${rollen}</div></div>
+      <div class="card" style="margin-top:12px"><div class="card-header">⚠️ Verwarnungen (${(d.warns||[]).length})</div><div class="card-body">${warns}</div></div>
+    `;
+    document.getElementById('spieler-modal').classList.remove('hidden');
+  } catch (err) {
+    toast('Fehler: ' + err.message, 'error');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// VERWARNUNGEN
+// ════════════════════════════════════════════════════════════════
+let warnsSearchTimeout;
+async function loadWarns(page = 1) {
+  const tbody = document.getElementById('warns-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Lädt...</td></tr>';
+  const search = document.getElementById('warns-search')?.value || '';
+  try {
+    const data = await api('GET', `/api/warns?page=${page}&limit=20&search=${encodeURIComponent(search)}`);
+    if (!data) return;
+    if (!data.warns || data.warns.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Keine Verwarnungen</td></tr>';
+    } else {
+      tbody.innerHTML = data.warns.map(w => `
+        <tr>
+          <td><strong>#${w.id}</strong></td>
+          <td>${escHtml(w.benutzer_name)}</td>
+          <td>${escHtml(w.grund)}</td>
+          <td>${escHtml(w.moderator_name)}</td>
+          <td>${formatDate(w.erstellt_am)}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteWarn(${w.id})">🗑️</button></td>
+        </tr>
+      `).join('');
+    }
+    renderPagination('warns-pagination', data.pages, page, loadWarns);
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="loading-text">Fehler: ${escHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function deleteWarn(id) {
+  if (!confirm(`Verwarnung #${id} wirklich löschen?`)) return;
+  try {
+    await api('DELETE', `/api/warns/${id}`);
+    toast('Verwarnung gelöscht', 'success');
+    loadWarns();
+  } catch (err) { toast('Fehler: ' + err.message, 'error'); }
+}
+
+// ════════════════════════════════════════════════════════════════
+// MOD-LOGS
+// ════════════════════════════════════════════════════════════════
+async function loadModLogs(page = 1) {
+  const tbody = document.getElementById('modlogs-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" class="loading-text">Lädt...</td></tr>';
+  try {
+    const data = await api('GET', `/api/modlogs?page=${page}&limit=30`);
+    if (!data) return;
+    if (!data.logs || data.logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="loading-text">Keine Mod-Logs</td></tr>';
+    } else {
+      tbody.innerHTML = data.logs.map(l => `
+        <tr>
+          <td style="white-space:nowrap">${formatDate(l.erstellt_am, true)}</td>
+          <td>${escHtml(l.moderator_name)}</td>
+          <td><code style="background:var(--bg-elevated);padding:2px 6px;border-radius:4px">${escHtml(l.aktion)}</code></td>
+          <td>${escHtml(l.ziel_name || '—')}</td>
+          <td style="color:var(--text-secondary)">${escHtml(l.grund || '—')}</td>
+        </tr>
+      `).join('');
+    }
+    renderPagination('modlogs-pagination', data.pages, page, loadModLogs);
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="loading-text">Fehler: ${escHtml(err.message)}</td></tr>`;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// CHAT LEEREN
+// ════════════════════════════════════════════════════════════════
+async function loadChat() {
+  try {
+    const data = await api('GET', '/api/settings');
+    if (!data) return;
+    const channels = data.channels || [];
+    const sel = document.getElementById('chat-kanal-select');
+    if (sel) {
+      sel.innerHTML = '<option value="">— Kanal wählen —</option>' +
+        channels.filter(c => c.type === 0).map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+    }
+    const logsData = await api('GET', '/api/modlogs?limit=8');
+    const recent = document.getElementById('chat-log-recent');
+    if (recent && logsData) {
+      const chatLogs = (logsData.logs || []).filter(l => l.aktion === 'chat_leeren');
+      recent.innerHTML = chatLogs.length === 0 ? '<div class="loading-text">Noch keine Löschungen</div>' :
+        chatLogs.map(l => `<div class="log-entry"><span class="log-time">${formatDate(l.erstellt_am, true)}</span><span>${escHtml(l.ziel_name || '')}</span><span class="log-detail">${escHtml(l.grund || '')}</span></div>`).join('');
+    }
+  } catch (err) { toast('Fehler: ' + err.message, 'error'); }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TIKTOK LIVE
+// ════════════════════════════════════════════════════════════════
+async function loadTikTok() {
+  const tbody = document.getElementById('tiktok-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="4" class="loading-text">Lädt...</td></tr>';
+  try {
+    const data = await api('GET', '/api/tiktok');
+    if (!data) return;
+
+    const hinweis = document.getElementById('tiktok-live-hinweis');
+    if (hinweis) {
+      hinweis.className = data.liveChannelId ? 'alert alert-success' : 'alert alert-error';
+      hinweis.style.marginBottom = '16px';
+      hinweis.innerHTML = data.liveChannelId
+        ? '✅ Live-Kanal ist gesetzt. Ändern in Einstellungen → Live-Ankündigungs-Kanal.'
+        : '⚠️ Kein Live-Kanal gesetzt! Gehe zu Einstellungen → Live-Ankündigungs-Kanal.';
+    }
+
+    const streamer = data.streamer || [];
+    if (streamer.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="loading-text">Keine TikToker überwacht</td></tr>';
+    } else {
+      tbody.innerHTML = streamer.map(s => `
+        <tr>
+          <td>${s.ist_live ? '🔴 Live' : '⚫ Offline'}</td>
+          <td><strong>@${escHtml(s.tiktok_username)}</strong></td>
+          <td>${escHtml(s.anzeige_name || s.tiktok_username)}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteTikTok(${s.id}, '${escHtml(s.tiktok_username)}')">🗑️</button></td>
+        </tr>
+      `).join('');
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="4" class="loading-text">Fehler: ${escHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function deleteTikTok(id, username) {
+  if (!confirm(`@${username} aus der Überwachung entfernen?`)) return;
+  try {
+    await api('DELETE', `/api/tiktok/${id}`);
+    toast(`@${username} entfernt`, 'success');
+    loadTikTok();
+  } catch (err) { toast('Fehler: ' + err.message, 'error'); }
+}
+
+// ── Event-Listener für die neuen Seiten ──
+document.addEventListener('DOMContentLoaded', () => {
+  const spielerSearch = document.getElementById('spieler-search');
+  if (spielerSearch) spielerSearch.addEventListener('input', () => {
+    clearTimeout(spielerSearchTimeout);
+    spielerSearchTimeout = setTimeout(() => loadSpieler(1), 400);
+  });
+
+  const warnsSearch = document.getElementById('warns-search');
+  if (warnsSearch) warnsSearch.addEventListener('input', () => {
+    clearTimeout(warnsSearchTimeout);
+    warnsSearchTimeout = setTimeout(() => loadWarns(1), 400);
+  });
+
+  const chatForm = document.getElementById('chat-leeren-form');
+  if (chatForm) chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const channelId = document.getElementById('chat-kanal-select').value;
+    const menge = parseInt(document.getElementById('chat-menge').value);
+    const msg = document.getElementById('chat-msg');
+    if (!channelId) { toast('Bitte Kanal wählen', 'error'); return; }
+    try {
+      const r = await api('POST', '/api/chat-leeren', { channelId, menge });
+      msg.className = 'alert alert-success';
+      msg.textContent = `✅ ${r.deleted} Nachrichten gelöscht`;
+      msg.classList.remove('hidden');
+      loadChat();
+    } catch (err) {
+      msg.className = 'alert alert-error';
+      msg.textContent = '❌ ' + err.message;
+      msg.classList.remove('hidden');
+    }
+  });
+
+  const tiktokForm = document.getElementById('tiktok-form');
+  if (tiktokForm) tiktokForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('tiktok-username').value;
+    const anzeigeName = document.getElementById('tiktok-anzeigename').value;
+    const msg = document.getElementById('tiktok-msg');
+    try {
+      await api('POST', '/api/tiktok', { username, anzeigeName });
+      msg.className = 'alert alert-success';
+      msg.textContent = `✅ @${username} hinzugefügt`;
+      msg.classList.remove('hidden');
+      document.getElementById('tiktok-username').value = '';
+      document.getElementById('tiktok-anzeigename').value = '';
+      loadTikTok();
+    } catch (err) {
+      msg.className = 'alert alert-error';
+      msg.textContent = '❌ ' + err.message;
+      msg.classList.remove('hidden');
+    }
+  });
+});
+
+// ── Init ──
 checkAuth();

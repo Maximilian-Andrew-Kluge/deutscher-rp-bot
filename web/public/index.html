@@ -69,6 +69,9 @@
       <a href="#chat" class="nav-item" data-page="chat">
         <span class="nav-icon">🧹</span> Chat leeren
       </a>
+      <a href="#tiktok" class="nav-item" data-page="tiktok">
+        <span class="nav-icon">📱</span> TikTok Live
+      </a>
 
       <div class="nav-section-label">Justiz</div>
       <a href="#verfahren" class="nav-item" data-page="verfahren">
@@ -284,6 +287,18 @@
                 <div class="form-group">
                   <label>📣 Ankündigungs-Kanal</label>
                   <select name="ankuendigung_channel_id" id="sel-ankuend" class="channel-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>👋 Willkommens-Kanal</label>
+                  <select name="willkommen_channel_id" id="sel-willkommen" class="channel-select">
+                    <option value="">— Nicht gesetzt —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>🔴 Live-Ankündigungs-Kanal</label>
+                  <select name="live_channel_id" id="sel-live" class="channel-select">
                     <option value="">— Nicht gesetzt —</option>
                   </select>
                 </div>
@@ -549,6 +564,53 @@
           <div class="card-body" id="chat-log-recent">
             <div class="loading-text">Lädt...</div>
           </div>
+        </div>
+      </section>
+
+      <!-- ── TIKTOK LIVE ── -->
+      <section id="page-tiktok" class="page">
+        <div class="page-header">
+          <h2>📱 TikTok Live-Benachrichtigungen</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadTikTok()">🔄 Aktualisieren</button>
+        </div>
+        <p class="page-desc">Verwalte überwachte TikToker. Bei Live-Start kommt automatisch eine Benachrichtigung im Live-Kanal.</p>
+
+        <div id="tiktok-live-hinweis" class="alert alert-info" style="margin-bottom:16px">Lädt...</div>
+
+        <div class="card" style="max-width:520px;margin-bottom:16px">
+          <div class="card-header">➕ TikToker hinzufügen</div>
+          <div class="card-body">
+            <form id="tiktok-form">
+              <div class="form-group">
+                <label>TikTok-Benutzername (ohne @)</label>
+                <input type="text" id="tiktok-username" placeholder="z.B. jerome_clan" required />
+              </div>
+              <div class="form-group">
+                <label>Anzeigename (optional)</label>
+                <input type="text" id="tiktok-anzeigename" placeholder="z.B. Jerome Clan" />
+              </div>
+              <div id="tiktok-msg" class="alert hidden"></div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary">➕ Hinzufügen</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>TikTok-Name</th>
+                <th>Anzeigename</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
+            <tbody id="tiktok-tbody">
+              <tr><td colspan="4" class="loading-text">Lädt...</td></tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

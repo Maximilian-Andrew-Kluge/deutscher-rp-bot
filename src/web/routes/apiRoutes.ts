@@ -150,7 +150,7 @@ export function createApiRouter(client: Client): Router {
       'voice_create_channel_id', 'voice_category_id',
       'polizei_ausbildung_channel_id', 'feuerwehr_ausbildung_channel_id',
       'rettungsdienst_ausbildung_channel_id', 'justiz_ausbildung_channel_id',
-      'ankuendigung_channel_id',
+      'ankuendigung_channel_id', 'willkommen_channel_id', 'live_channel_id',
     ];
 
     const existing = db.prepare('SELECT guild_id FROM server_settings WHERE guild_id = ?').get(guildId);
@@ -522,6 +522,46 @@ export function createApiRouter(client: Client): Router {
       const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
       res.status(500).json({ error: msg });
     }
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // TIKTOK LIVE-STREAMER
+  // ════════════════════════════════════════════════════════════════════════════
+  router.get('/tiktok', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    const guildId = (req.query.guildId as string) || client.guilds.cache.first()?.id || '';
+    const streamer = db.prepare('SELECT * FROM tiktok_streamer WHERE guild_id = ? ORDER BY tiktok_username')
+      .all(guildId);
+    const settings = db.prepare('SELECT live_channel_id FROM server_settings WHERE guild_id = ?')
+      .get(guildId) as { live_channel_id: string | null } | undefined;
+    res.json({ streamer, liveChannelId: settings?.live_channel_id ?? null });
+  });
+
+  router.post('/tiktok', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    const guildId = (req.body.guildId as string) || client.guilds.cache.first()?.id || '';
+    const username = String(req.body.username || '').replace(/^@/, '').trim().toLowerCase();
+    const anzeigeName = String(req.body.anzeigeName || username).trim();
+
+    if (!username) { res.status(400).json({ error: 'Username erforderlich' }); return; }
+
+    try {
+      db.prepare('INSERT INTO tiktok_streamer (guild_id, tiktok_username, anzeige_name, hinzugefuegt_von) VALUES (?, ?, ?, ?)')
+        .run(guildId, username, anzeigeName, `web:${req.admin!.username}`);
+      db.prepare('INSERT INTO admin_logs (username, aktion, details) VALUES (?, ?, ?)')
+        .run(req.admin!.username, 'tiktok_add', `@${username}`);
+      res.json({ ok: true });
+    } catch {
+      res.status(409).json({ error: 'TikToker wird bereits überwacht' });
+    }
+  });
+
+  router.delete('/tiktok/:id', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    db.prepare('DELETE FROM tiktok_streamer WHERE id = ?').run(parseInt(req.params.id));
+    db.prepare('INSERT INTO admin_logs (username, aktion, details) VALUES (?, ?, ?)')
+      .run(req.admin!.username, 'tiktok_remove', `ID: ${req.params.id}`);
+    res.json({ ok: true });
   });
 
   return router;
