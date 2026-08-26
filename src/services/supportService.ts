@@ -123,9 +123,11 @@ export class SupportService {
           if (!m.roles.cache.has(roleId)) return;
           // Doppelte vermeiden
           if (supporters.some(s => s.id === m.id)) return;
-          // Online-Status prüfen
+          // Online-Status prüfen: NULL zählt auch als erreichbar
+          // (Discord liefert nicht immer Presence, besonders auf Mobilgeräten)
+          // Nur explizit "offline" wird ausgeschlossen
           const status = m.presence?.status;
-          if (status === 'online' || status === 'idle' || status === 'dnd') {
+          if (status !== 'offline') {
             supporters.push(m);
           }
         });
