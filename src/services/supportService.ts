@@ -123,12 +123,9 @@ export class SupportService {
           if (!m.roles.cache.has(roleId)) return;
           // Doppelte vermeiden
           if (supporters.some(s => s.id === m.id)) return;
-          // Online-Status prüfen (Option B):
-          // Erreichbar = explizit online/idle/dnd ODER in einem Voice-Kanal
+          // Nur explizit online/idle/dnd zählt als erreichbar
           const status = m.presence?.status;
-          const isOnline = status === 'online' || status === 'idle' || status === 'dnd';
-          const isInVoice = m.voice?.channelId != null;
-          if (isOnline || isInVoice) {
+          if (status === 'online' || status === 'idle' || status === 'dnd') {
             supporters.push(m);
           }
         });
@@ -167,8 +164,8 @@ export class SupportService {
       .setFooter({ text: `Deutscher RP Server • Support` })
       .setTimestamp();
 
-    // Rollen-Ping für alle Support-Rollen
-    const pings = SUPPORT_ROLES.map(id => `<@&${id}>`).join(' ');
+    // Nur die online Supporter direkt pingen (nicht die Rollen)
+    const pings = onlineSupporters.map(s => `${s}`).join(' ');
 
     await channel.send({
       content: `${pings} — Jemand wartet im Support!`,
