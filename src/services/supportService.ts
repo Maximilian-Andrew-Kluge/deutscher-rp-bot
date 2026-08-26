@@ -174,12 +174,12 @@ export class SupportService {
   }
 
   /**
-   * Bot joint den Voice-Kanal und spricht per TTS.
+   * Bot joint den Voice-Kanal, spricht per TTS und spielt danach Wartemusik.
    */
   private async speakInChannel(voiceChannel: VoiceChannel, text: string, guildId: string): Promise<void> {
     try {
       // Audio-URL von Google TTS holen (deutsch)
-      const url = googleTTS.getAudioUrl(text, {
+      const ttsUrl = googleTTS.getAudioUrl(text, {
         lang: 'de',
         slow: false,
         host: 'https://translate.google.com',
@@ -198,34 +198,80 @@ export class SupportService {
       // Warten bis verbunden
       await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
 
-      // Audio abspielen
+      // Player erstellen
       const player = createAudioPlayer();
-      const resource = createAudioResource(url);
-
       connection.subscribe(player);
-      player.play(resource);
 
-      // Warten bis fertig, dann nach kurzer Pause disconnecten
-      player.on(AudioPlayerStatus.Idle, () => {
+      // Erst TTS abspielen
+      const ttsResource = createAudioResource(ttsUrl);
+      player.play(ttsResource);
+
+      // Nach TTS → Wartemusik starten
+      player.once(AudioPlayerStatus.Idle, () => {
+        // Kurze Pause, dann Musik
         setTimeout(() => {
-          // Nur disconnecten wenn keine neuen User dazugekommen sind
           const channel = this.client.channels.cache.get(voiceChannel.id) as VoiceChannel | undefined;
           const humanMembers = channel?.members.filter(m => !m.user.bot).size ?? 0;
           if (humanMembers === 0) {
             connection?.destroy();
+            return;
           }
-        }, 3000);
+          this.playWaitingMusic(player, guildId, voiceChannel.id);
+        }, 1500);
       });
 
       player.on('error', (err) => {
         console.error('Support-TTS Audio-Fehler:', err);
-        connection?.destroy();
+        // Bei TTS-Fehler trotzdem Musik versuchen
+        setTimeout(() => this.playWaitingMusic(player, guildId, voiceChannel.id), 1000);
       });
     } catch (err) {
       console.error('Support-TTS Fehler:', err);
-      // Bei Fehler trotzdem aufräumen
       const conn = getVoiceConnection(guildId);
       if (conn) conn.destroy();
+    }
+  }
+
+  /**
+   * Spielt Lofi-Wartemusik in Schleife, bis der Kanal leer ist.
+   */
+  private playWaitingMusic(player: ReturnType<typeof createAudioPlayer>, guildId: string, channelId: string): void {
+    // Lofi/Chill Radio-Stream (öffentlich, stabil, endlos)
+    const MUSIC_URL = 'https://streams.ilovemusic.de/iloveradio17.mp3'; // Lofi Hip Hop
+
+    try {
+      const resource = createAudioResource(MUSIC_URL);
+      player.play(resource);
+
+      // Wenn der Stream unerwartet endet → neu starten (solange User da sind)
+      player.once(AudioPlayerStatus.Idle, () => {
+        const channel = this.client.channels.cache.get(channelId) as VoiceChannel | undefined;
+        const humanMembers = channel?.members.filter(m => !m.user.bot).size ?? 0;
+        if (humanMembers > 0) {
+          // Stream neu starten
+          setTimeout(() => this.playWaitingMusic(player, guildId, channelId), 2000);
+        } else {
+          const conn = getVoiceConnection(guildId);
+          if (conn) conn.destroy();
+        }
+      });
+
+      player.once('error', (err) => {
+        console.error('Wartemusik-Fehler:', err);
+        // Nach Fehler nochmal versuchen
+        setTimeout(() => {
+          const channel = this.client.channels.cache.get(channelId) as VoiceChannel | undefined;
+          const humanMembers = channel?.members.filter(m => !m.user.bot).size ?? 0;
+          if (humanMembers > 0) {
+            this.playWaitingMusic(player, guildId, channelId);
+          } else {
+            const conn = getVoiceConnection(guildId);
+            if (conn) conn.destroy();
+          }
+        }, 5000);
+      });
+    } catch (err) {
+      console.error('Wartemusik konnte nicht gestartet werden:', err);
     }
   }
 }
