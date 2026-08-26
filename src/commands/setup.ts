@@ -63,7 +63,13 @@ export const data = new SlashCommandBuilder()
       ))
     .addRoleOption(o => o.setName('rolle').setDescription('Die Discord-Rolle').setRequired(true))
   )
-  .addSubcommand(sub => sub.setName('info').setDescription('Zeigt die aktuelle Konfiguration'));
+  .addSubcommand(sub => sub.setName('info').setDescription('Zeigt die aktuelle Konfiguration'))
+  .addSubcommand(sub => sub
+    .setName('support')
+    .setDescription('Konfiguriert den Support-Warteraum (Voice + Benachrichtigungen)')
+    .addChannelOption(o => o.setName('warteraum').setDescription('Voice-Kanal als Support-Warteraum').setRequired(true).addChannelTypes(ChannelType.GuildVoice))
+    .addChannelOption(o => o.setName('benachrichtigung').setDescription('Textkanal für Support-Benachrichtigungen').setRequired(true).addChannelTypes(ChannelType.GuildText))
+  );
 
 export async function execute(interaction: CommandInteraction): Promise<void> {
   if (!interaction.isChatInputCommand()) return;
@@ -170,6 +176,23 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
 
     await interaction.reply({ embeds: [createSuccessEmbed('Rolle konfiguriert', `**${key}** → ${role}`)], ephemeral: true });
 
+  } else if (sub === 'support') {
+    const warteraum = interaction.options.getChannel('warteraum', true);
+    const benachrichtigung = interaction.options.getChannel('benachrichtigung', true);
+
+    db.prepare(`UPDATE server_settings SET support_channel_id = ?, support_notify_channel_id = ? WHERE guild_id = ?`)
+      .run(warteraum.id, benachrichtigung.id, interaction.guildId!);
+
+    await interaction.reply({
+      embeds: [createSuccessEmbed('🎧 Support-System konfiguriert',
+        `**Support-Warteraum:** ${warteraum}\n` +
+        `**Benachrichtigungs-Kanal:** ${benachrichtigung}\n\n` +
+        `Wenn jemand den Warteraum betritt, wird der Bot beitreten und per Sprachansage mitteilen, ob ein Supporter verfügbar ist. ` +
+        `Gleichzeitig werden die Support-Rollen im Benachrichtigungs-Kanal gepingt.`
+      )],
+      ephemeral: true,
+    });
+
   } else if (sub === 'info') {
     type SettingsRow = Record<string, string | null>;
     const s = db.prepare('SELECT * FROM server_settings WHERE guild_id = ?').get(interaction.guildId!) as SettingsRow | undefined;
@@ -191,6 +214,8 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
         { name: '🚒 Feuerwehr-Ausbildung', value: ch(s?.feuerwehr_ausbildung_channel_id), inline: true },
         { name: '🚑 Rettungsdienst-Ausbildung', value: ch(s?.rettungsdienst_ausbildung_channel_id), inline: true },
         { name: '⚖️ Justiz-Ausbildung', value: ch(s?.justiz_ausbildung_channel_id), inline: true },
+        { name: '🎧 Support-Warteraum', value: ch(s?.support_channel_id), inline: true },
+        { name: '📄 Support-Benachrichtigung', value: ch(s?.support_notify_channel_id), inline: true },
         {
           name: `🎭 Konfigurierte Rollen (${roles.length})`,
           value: roles.length > 0

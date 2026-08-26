@@ -7,6 +7,7 @@ import { VoiceService } from './services/voiceService';
 import { WelcomeService } from './services/welcomeService';
 import { TikTokService } from './services/tiktokService';
 import { initDatabase, closeDatabase, getDatabase } from './database/database';
+import { SupportService } from './services/supportService';
 import { config } from './config/config';
 import { startWebServer } from './web/server';
 
@@ -98,15 +99,24 @@ async function main(): Promise<void> {
   // Event: Voice-Status Änderung
   client.on('voiceStateUpdate', async (oldState, newState) => {
     const voiceService = new VoiceService(client);
+    const supportService = new SupportService(client);
 
     // Benutzer betritt Voice-Kanal (erstmalig)
     if (!oldState.channelId && newState.channelId && newState.member) {
       await voiceService.handleVoiceJoin(newState.member, newState.channelId);
+      await supportService.handleVoiceJoin(newState.member, newState.channelId);
+    }
+
+    // Benutzer wechselt den Kanal (betritt neuen)
+    if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId && newState.member) {
+      await voiceService.handleVoiceJoin(newState.member, newState.channelId);
+      await supportService.handleVoiceJoin(newState.member, newState.channelId);
     }
 
     // Benutzer verlässt Voice-Kanal (oder wechselt)
     if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
       await voiceService.handleVoiceLeave(oldState.guild.id, oldState.channelId);
+      await supportService.handleVoiceLeave(oldState.guild.id, oldState.channelId);
     }
   });
 

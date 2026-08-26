@@ -4,7 +4,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Build-Tools für native Module (sql.js braucht keine, aber pdfkit schon)
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ ffmpeg
 
 COPY package*.json ./
 RUN npm ci
@@ -17,7 +17,7 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ ffmpeg
 
 COPY package*.json ./
 RUN npm ci --omit=dev
