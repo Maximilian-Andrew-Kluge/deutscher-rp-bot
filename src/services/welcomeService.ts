@@ -25,28 +25,51 @@ export class WelcomeService {
       if (!channel || !channel.isTextBased()) return;
 
       const memberCount = member.guild.memberCount;
+      const guildName = member.guild.name;
 
       const embed = new EmbedBuilder()
         .setColor(config.colors.success as ColorResolvable)
-        .setTitle('🇩🇪 Willkommen beim Deutschen RP Server!')
+        .setAuthor({ name: '🎉 Neues Mitglied', iconURL: member.guild.iconURL({ size: 128 }) ?? undefined })
+        .setTitle(`🇩🇪 Willkommen auf dem Deutschen RP Server!`)
         .setDescription(
-          `Willkommen, ${member}! 👋\n\n` +
-          'Schön, dass du den Weg zu uns gefunden hast!\n\n' +
-          'Der Deutsche RP Server ist ein deutscher Roblox-Roleplay-Server mit ' +
-          'verschiedenen Fraktionen und einer aktiven Community.\n\n' +
-          '⚖️ **Justiz**\n' +
-          '🚓 **Polizei**\n' +
-          '🚒 **Feuerwehr**\n' +
-          '🚑 **Rettungsdienst**\n\n' +
-          'Bevor du loslegst, lies bitte unsere Regeln und hole dir deine benötigten Rollen.\n\n' +
-          'Wir wünschen dir viel Spaß beim Roleplay! 🇩🇪'
+          `Hey ${member}, schön dass du da bist! 👋\n\n` +
+          `Du bist unser **${memberCount}. Mitglied** — herzlich willkommen in unserer Community! ` +
+          `Bei uns erlebst du realistisches deutsches Roblox-Roleplay mit voll ausgestalteten Fraktionen.`
+        )
+        .addFields(
+          {
+            name: '🚀 Deine ersten Schritte',
+            value:
+              '📜 Lies dir unsere **Regeln** durch\n' +
+              '🎭 Hol dir im **Rollen-Menü** deine Rollen\n' +
+              '💬 Stell dich gern der Community vor',
+            inline: false,
+          },
+          {
+            name: '🏛️ Unsere Fraktionen',
+            value:
+              '⚖️ Justiz\n' +
+              '🚓 Polizei\n' +
+              '🚒 Feuerwehr\n' +
+              '🚑 Rettungsdienst',
+            inline: true,
+          },
+          {
+            name: '✨ Was dich erwartet',
+            value:
+              '🎬 Aktives Roleplay\n' +
+              '👥 Freundliche Community\n' +
+              '📈 Aufstiegsmöglichkeiten\n' +
+              '🎉 Regelmäßige Events',
+            inline: true,
+          },
         )
         .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
-        .setFooter({ text: `Deutscher RP Server • Roleplay • Community • ${memberCount} Mitglieder` })
+        .setFooter({ text: `${guildName} • Viel Spaß beim Roleplay! 🇩🇪` })
         .setTimestamp();
 
       await (channel as TextChannel).send({
-        content: `${member}`,
+        content: `Willkommen an Bord, ${member}! 🎉`,
         embeds: [embed],
       });
     } catch (err) {
@@ -67,10 +90,19 @@ export class WelcomeService {
       const channel = await this.client.channels.fetch(settings.willkommen_channel_id).catch(() => null);
       if (!channel || !channel.isTextBased()) return;
 
-      const name = member.user?.tag ?? member.displayName ?? 'Ein Mitglied';
+      const name = member.user?.username ?? member.displayName ?? 'Ein Mitglied';
+      const memberCount = member.guild.memberCount;
+
       const embed = new EmbedBuilder()
         .setColor(config.colors.error as ColorResolvable)
-        .setDescription(`👋 **${name}** hat den Server verlassen.`)
+        .setAuthor({ name: '👋 Mitglied verlassen', iconURL: member.guild.iconURL({ size: 128 }) ?? undefined })
+        .setTitle('Auf Wiedersehen!')
+        .setDescription(
+          `**${name}** hat den Deutschen RP Server verlassen.\n\n` +
+          'Schade, dass du gehst — die Türen stehen dir jederzeit wieder offen. 🇩🇪'
+        )
+        .setThumbnail(member.user?.displayAvatarURL({ size: 256 }) ?? null)
+        .setFooter({ text: `Wir sind jetzt noch ${memberCount} Mitglieder` })
         .setTimestamp();
 
       await (channel as TextChannel).send({ embeds: [embed] });
