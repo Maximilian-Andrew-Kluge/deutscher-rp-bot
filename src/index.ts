@@ -138,10 +138,11 @@ async function main(): Promise<void> {
         return;
       }
 
-      // Falls es ein offener Verfahrens-Thread war
-      const verfahren = db.prepare('SELECT id, aktenzeichen FROM verfahren WHERE forum_post_id = ?')
-        .get(thread.id) as { id: number; aktenzeichen: string } | undefined;
-      if (verfahren) {
+      // Falls es ein offener Verfahrens-Thread war (NICHT abgeschlossene!)
+      // Abgeschlossene Verfahren werden vom Bot selbst gelöscht (im Abschluss-Flow) — das darf nicht die DB leeren.
+      const verfahren = db.prepare('SELECT id, aktenzeichen, status FROM verfahren WHERE forum_post_id = ?')
+        .get(thread.id) as { id: number; aktenzeichen: string; status: string } | undefined;
+      if (verfahren && verfahren.status !== 'abgeschlossen') {
         db.prepare('DELETE FROM verfahren WHERE id = ?').run(verfahren.id);
         console.log(`🗑️  Verfahren ${verfahren.aktenzeichen} aus DB entfernt (Discord-Thread gelöscht).`);
       }
