@@ -150,11 +150,7 @@ export class SupportService {
       .setColor(config.colors.info as ColorResolvable)
       .setAuthor({ name: '🎧 Support-Warteraum' })
       .setTitle('📞 Neue Support-Anfrage')
-      .setDescription(
-        `${member} wartet im Support-Warteraum.\n\n` +
-        `**Online Supporter (${onlineSupporters.length}):**\n` +
-        onlineSupporters.map(s => `> ${s} (${s.presence?.status ?? 'online'})`).join('\n')
-      )
+      .setDescription(`${member} wartet im Support-Warteraum.`)
       .setThumbnail(member.user.displayAvatarURL({ size: 128 }))
       .setFooter({ text: `Deutscher RP Server • Support` })
       .setTimestamp();
