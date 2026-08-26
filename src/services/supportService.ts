@@ -62,7 +62,7 @@ export class SupportService {
     if (!voiceChannel) return;
 
     // Supporter online prüfen
-    const onlineSupporters = this.getOnlineSupporters(member.guild);
+    const onlineSupporters = await this.getOnlineSupporters(member.guild);
     const hasSupporter = onlineSupporters.length > 0;
 
     // TTS-Ansage vorbereiten
@@ -70,8 +70,11 @@ export class SupportService {
       ? `Willkommen im Support! Ein Supporter wurde benachrichtigt und wird sich gleich um dich kümmern.`
       : `Willkommen im Support! Leider ist aktuell kein Supporter verfügbar. Bitte warte kurz oder versuche es später erneut.`;
 
-    // Benachrichtigung in den Support-Textkanal senden
-    await this.sendNotification(member, settings.support_notify_channel_id, onlineSupporters, hasSupporter);
+    // Benachrichtigung NUR senden wenn Supporter online sind
+    // (Zivilisten haben keinen Zugriff auf den Benachrichtigungs-Kanal)
+    if (hasSupporter) {
+      await this.sendNotification(member, settings.support_notify_channel_id, onlineSupporters);
+    }
 
     // Bot in den Voice-Kanal joinen und TTS abspielen
     await this.speakInChannel(voiceChannel, ansage, guildId);
@@ -103,33 +106,45 @@ export class SupportService {
 
   /**
    * Alle online Supporter im Server finden (Status: online, idle oder dnd).
+   * Nutzt guild.members.fetch() um sicherzustellen, dass alle Mitglieder geladen sind.
    */
-  private getOnlineSupporters(guild: import('discord.js').Guild): GuildMember[] {
+  private async getOnlineSupporters(guild: import('discord.js').Guild): Promise<GuildMember[]> {
     const supporters: GuildMember[] = [];
 
-    guild.members.cache.forEach(m => {
-      if (m.user.bot) return;
-      // Prüfen ob Mitglied eine Support-Rolle hat
-      const hasRole = SUPPORT_ROLES.some(roleId => m.roles.cache.has(roleId));
-      if (!hasRole) return;
-      // Prüfen ob online (presence)
-      const status = m.presence?.status;
-      if (status === 'online' || status === 'idle' || status === 'dnd') {
-        supporters.push(m);
+    // Mitglieder mit Support-Rollen aktiv vom Server laden
+    for (const roleId of SUPPORT_ROLES) {
+      try {
+        const role = guild.roles.cache.get(roleId);
+        if (!role) continue;
+        // Alle Mitglieder mit dieser Rolle fetchen (inklusive Presence)
+        const members = await guild.members.fetch({ withPresences: true });
+        members.forEach(m => {
+          if (m.user.bot) return;
+          if (!m.roles.cache.has(roleId)) return;
+          // Doppelte vermeiden
+          if (supporters.some(s => s.id === m.id)) return;
+          // Online-Status prüfen
+          const status = m.presence?.status;
+          if (status === 'online' || status === 'idle' || status === 'dnd') {
+            supporters.push(m);
+          }
+        });
+        break; // fetch() lädt alle Mitglieder, wir brauchen es nur einmal
+      } catch (err) {
+        console.error(`Fehler beim Laden der Supporter-Rolle ${roleId}:`, err);
       }
-    });
+    }
 
     return supporters;
   }
 
   /**
-   * Benachrichtigung in den Support-Textkanal senden.
+   * Benachrichtigung in den Support-Textkanal senden (nur wenn Supporter online).
    */
   private async sendNotification(
     member: GuildMember,
     notifyChannelId: string | null,
-    onlineSupporters: GuildMember[],
-    hasSupporter: boolean
+    onlineSupporters: GuildMember[]
   ): Promise<void> {
     if (!notifyChannelId) return;
 
@@ -137,15 +152,13 @@ export class SupportService {
     if (!channel) return;
 
     const embed = new EmbedBuilder()
-      .setColor((hasSupporter ? config.colors.info : config.colors.warning) as ColorResolvable)
+      .setColor(config.colors.info as ColorResolvable)
       .setAuthor({ name: '🎧 Support-Warteraum' })
-      .setTitle(hasSupporter ? '📞 Neuer Support-Anfrage' : '⚠️ Support-Anfrage — Kein Supporter verfügbar')
+      .setTitle('📞 Neue Support-Anfrage')
       .setDescription(
         `${member} wartet im Support-Warteraum.\n\n` +
-        (hasSupporter
-          ? `**Online Supporter (${onlineSupporters.length}):**\n` +
-            onlineSupporters.map(s => `> ${s} (${s.presence?.status ?? '?'})`).join('\n')
-          : '**Aktuell ist kein Supporter online.** Bitte schnellstmöglich jemanden aktivieren.')
+        `**Online Supporter (${onlineSupporters.length}):**\n` +
+        onlineSupporters.map(s => `> ${s} (${s.presence?.status ?? 'online'})`).join('\n')
       )
       .setThumbnail(member.user.displayAvatarURL({ size: 128 }))
       .setFooter({ text: `Deutscher RP Server • Support` })
