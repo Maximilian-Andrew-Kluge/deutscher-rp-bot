@@ -228,14 +228,18 @@ export class SupportService {
   }
 
   /**
-   * Spielt Lofi-Wartemusik in Schleife, bis der Kanal leer ist.
+   * Spielt Wartemusik in Schleife, bis der Kanal leer ist.
    */
   private playWaitingMusic(player: ReturnType<typeof createAudioPlayer>, guildId: string, channelId: string): void {
-    // Lofi/Chill Radio-Stream (öffentlich, stabil, endlos)
-    const MUSIC_URL = 'https://streams.ilovemusic.de/iloveradio17.mp3'; // Lofi Hip Hop
+    // Werbefreier Lofi/Chill-Stream
+    const MUSIC_URL = 'https://play.streamafrica.net/lofiradio';
 
     try {
-      const resource = createAudioResource(MUSIC_URL);
+      const resource = createAudioResource(MUSIC_URL, {
+        inlineVolume: true,
+      });
+      // Lautstärke auf 30% setzen (leise Hintergrundmusik)
+      resource.volume?.setVolume(0.3);
       player.play(resource);
 
       // Wenn der Stream unerwartet endet → neu starten (solange User da sind)
