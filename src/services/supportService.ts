@@ -23,7 +23,7 @@ const SUPPORT_ROLES = [
 
 // Cooldown pro Guild (damit der Bot nicht bei jedem Join spamt)
 const cooldowns = new Map<string, number>();
-const COOLDOWN_MS = 15_000; // 15 Sekunden
+const COOLDOWN_MS = 5_000; // 5 Sekunden (kurz genug für schnelles Rein/Raus)
 
 export class SupportService {
   private client: Client;
@@ -180,15 +180,20 @@ export class SupportService {
         host: 'https://translate.google.com',
       });
 
-      // Voice-Connection aufbauen (oder bestehende nutzen)
+      // Voice-Connection aufbauen — alte Connection zuerst zerstören falls vorhanden
+      // (verhindert hängende Connections bei schnellem Rein/Raus)
       let connection = getVoiceConnection(guildId);
-      if (!connection) {
-        connection = joinVoiceChannel({
-          channelId: voiceChannel.id,
-          guildId: guildId,
-          adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-        });
+      if (connection) {
+        try { connection.destroy(); } catch { /* ignore */ }
+        // Kurz warten bis Discord die alte Connection abgebaut hat
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
+
+      connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: guildId,
+        adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+      });
 
       // Warten bis verbunden
       await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
@@ -238,8 +243,8 @@ export class SupportService {
       const resource = createAudioResource(MUSIC_URL, {
         inlineVolume: true,
       });
-      // Lautstärke auf 30% setzen (leise Hintergrundmusik)
-      resource.volume?.setVolume(0.3);
+      // Lautstärke auf 15% setzen (leise Hintergrundmusik)
+      resource.volume?.setVolume(0.15);
       player.play(resource);
 
       // Wenn der Stream unerwartet endet → neu starten (solange User da sind)
