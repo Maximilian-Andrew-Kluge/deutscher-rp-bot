@@ -12,7 +12,7 @@ import { hasJustizPermission, hasAdminPermission } from '../utils/permissions';
 import { createErrorEmbed, createSuccessEmbed, createInfoEmbed, createWarningEmbed } from '../utils/embeds';
 import { config } from '../config/config';
 import { getDatabase } from '../database/database';
-import { generateJustizaktePDF } from '../services/pdfService';
+import { generateJustizaktePDF, generatePolizeiaktePDF } from '../services/pdfService';
 import { KATEGORIEN, ROLLEN_KEYS, buildPanelEmbed as buildRollenPanelEmbed, buildPanelButtons as buildRollenPanelButtons } from '../commands/rollenpanel';
 import { ALLE_KATEGORIEN } from '../commands/rollenmenu';
 import { handleAdminSelect, handleAdminModal } from '../commands/admin';
@@ -482,6 +482,35 @@ export class PanelManager {
     };
   }
 
+  /**
+   * Leitet Richter / Staatsanwalt / Anwalt / Ermittler automatisch ab,
+   * damit der manuelle Auswahl-Schritt entfällt.
+   * - Richter/Staatsanwalt/Anwalt: Standard-Label, wenn die Rolle in role_config konfiguriert ist.
+   * - Ermittler: der Ersteller des Verfahrens (dessen Anzeigename im Server).
+   */
+  private autoBeteiligte(guildId: string, userId: string): {
+    richter: string; staatsanwalt: string; anwalt: string; ermittler: string;
+  } {
+    const db = getDatabase();
+    const rows = db.prepare('SELECT role_key FROM role_config WHERE guild_id = ?')
+      .all(guildId) as Array<{ role_key: string }>;
+    const configured = new Set(rows.map(r => r.role_key));
+
+    // Ermittler = Ersteller (Anzeigename, sonst Username, sonst Mention)
+    let ermittler = '';
+    const guild = this.client.guilds.cache.get(guildId);
+    const member = guild?.members.cache.get(userId);
+    if (member) ermittler = member.displayName;
+    else ermittler = `<@${userId}>`;
+
+    return {
+      richter:      configured.has('richter')      ? 'Richter'      : '',
+      staatsanwalt: configured.has('staatsanwalt') ? 'Staatsanwalt' : '',
+      anwalt:       configured.has('anwalt')       ? 'Anwalt'       : '',
+      ermittler,
+    };
+  }
+
   /** Modal 3: Geschädigter, Zeugen, Weitere, Zusatzinfo */
   private buildVerfahrenModal3(): ModalBuilder {
     return new ModalBuilder()
@@ -688,6 +717,8 @@ export class PanelManager {
       await this.handleBearbeitenModal(interaction);
     } else if (id.startsWith('modal_embed_senden_')) {
       await this.handleEmbedSendenModal(interaction);
+    } else if (id.startsWith('modal_embed_edit_')) {
+      await this.handleEmbedEditModal(interaction);
     }
   }
 
@@ -742,18 +773,41 @@ export class PanelManager {
       const beweise     = this.safeField(interaction, 'beweise');
 
       const db = getDatabase();
-      db.prepare(`UPDATE verfahren_draft
-        SET tatzeit = ?, tatort = ?, sachverhalt = ?, beweise = ?
-        WHERE guild_id = ? AND user_id = ?`)
-        .run(tatzeit || null, tatort || null, sachverhalt, beweise || null,
-          interaction.guildId!, interaction.user.id);
 
-      // Zeige Select 3 (Beteiligte) — update() ersetzt die vorherige Nachricht
-      const sel = this.buildVerfahrenSelect3(interaction.guildId!);
+      // Beteiligte (Richter/Staatsanwalt/Anwalt) automatisch aus der Rollen-Konfiguration
+      // ableiten — der frühere manuelle Auswahl-Schritt "5/5: Beteiligte" entfällt.
+      const auto = this.autoBeteiligte(interaction.guildId!, interaction.user.id);
+
+      db.prepare(`UPDATE verfahren_draft
+        SET tatzeit = ?, tatort = ?, sachverhalt = ?, beweise = ?,
+            richter = ?, staatsanwalt = ?, anwalt = ?, ermittler = ?
+        WHERE guild_id = ? AND user_id = ?`)
+        .run(
+          tatzeit || null, tatort || null, sachverhalt, beweise || null,
+          auto.richter || null, auto.staatsanwalt || null, auto.anwalt || null, auto.ermittler || null,
+          interaction.guildId!, interaction.user.id
+        );
+
+      // Beteiligte-Auswahl wird übersprungen. Ein Modal kann nicht direkt aus einem
+      // Modal-Submit geöffnet werden → wir zeigen einen "Weiter"-Button, der Modal 3 öffnet.
+      const weiterEmbed = new EmbedBuilder()
+        .setColor(config.colors.justiz as ColorResolvable)
+        .setTitle('⚖️ Verfahren — Tat & Sachverhalt gespeichert ✅')
+        .setDescription(
+          'Richter, Staatsanwalt, Anwalt und Ermittler wurden automatisch zugeordnet.\n\n' +
+          'Klicke auf **Weiter**, um Geschädigten, Zeugen und weitere Angaben einzutragen — ' +
+          'oder auf **Jetzt erstellen**, um das Verfahren sofort zu eröffnen.'
+        );
+      const weiterButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId('verfahren_weiter_beteiligte').setLabel('Weiter — Beteiligte & Abschluss').setStyle(ButtonStyle.Primary).setEmoji('👥'),
+        new ButtonBuilder().setCustomId('verfahren_erstellen_direkt').setLabel('Jetzt erstellen').setStyle(ButtonStyle.Success).setEmoji('✅'),
+        new ButtonBuilder().setCustomId('verfahren_abbrechen').setLabel('Abbrechen').setStyle(ButtonStyle.Secondary),
+      );
+
       if (interaction.isFromMessage()) {
-        await interaction.update({ embeds: sel.embeds, components: sel.components as never });
+        await interaction.update({ embeds: [weiterEmbed], components: [weiterButtons] as never });
       } else {
-        await interaction.reply({ embeds: sel.embeds, components: sel.components as never, ephemeral: true });
+        await interaction.reply({ embeds: [weiterEmbed], components: [weiterButtons] as never, ephemeral: true });
       }
     } catch (err) {
       console.error('Modal2 Fehler:', err);
@@ -772,15 +826,29 @@ export class PanelManager {
       const zusatzinfo         = this.safeField(interaction, 'zusatzinfo');
 
       const db = getDatabase();
-      db.prepare(`
-        UPDATE verfahren_draft
-        SET geschaedigter = ?, zeugen = ?, ermittler = ?, weitere_beteiligte = ?, zusatzinfo = ?
-        WHERE guild_id = ? AND user_id = ?
-      `).run(
-        geschaedigter || null, zeugen || null, ermittler || null,
-        weitere_beteiligte || null, zusatzinfo || null,
-        interaction.guildId!, interaction.user.id
-      );
+      // Ermittler nur überschreiben, wenn der Nutzer etwas eingetragen hat —
+      // sonst bleibt der automatisch abgeleitete Wert erhalten.
+      if (ermittler) {
+        db.prepare(`
+          UPDATE verfahren_draft
+          SET geschaedigter = ?, zeugen = ?, ermittler = ?, weitere_beteiligte = ?, zusatzinfo = ?
+          WHERE guild_id = ? AND user_id = ?
+        `).run(
+          geschaedigter || null, zeugen || null, ermittler,
+          weitere_beteiligte || null, zusatzinfo || null,
+          interaction.guildId!, interaction.user.id
+        );
+      } else {
+        db.prepare(`
+          UPDATE verfahren_draft
+          SET geschaedigter = ?, zeugen = ?, weitere_beteiligte = ?, zusatzinfo = ?
+          WHERE guild_id = ? AND user_id = ?
+        `).run(
+          geschaedigter || null, zeugen || null,
+          weitere_beteiligte || null, zusatzinfo || null,
+          interaction.guildId!, interaction.user.id
+        );
+      }
 
       await this.erstelleVerfahrenAusDraft(interaction);
     } catch (err) {
@@ -967,30 +1035,39 @@ export class PanelManager {
     // Notizen laden
     const notizen = this.verfahrenService.getNotizenFull(verfahren.id);
 
-    // PDF generieren
-    let pdfBuffer: Buffer;
+    // PDF-Daten (mit Abschluss-Feldern für Stempel + Dienstsiegel)
+    const pdfData = {
+      ...verfahren,
+      urteil:                 urteil  || verfahren.urteil  || '',
+      strafe:                 strafe  || verfahren.strafe  || '',
+      abgeschlossen_von_name: interaction.user.tag,
+    };
+
+    // Beide PDFs generieren (Justizakte + Polizei-Verfahrensakte)
+    let justizPdf: Buffer | null = null;
+    let polizeiPdf: Buffer | null = null;
     try {
-      pdfBuffer = await generateJustizaktePDF(
-        {
-          ...verfahren,
-          urteil:                urteil  || verfahren.urteil  || '',
-          strafe:                strafe  || verfahren.strafe  || '',
-          abgeschlossen_von_name: interaction.user.tag,
-        },
-        notizen
-      );
+      justizPdf = await generateJustizaktePDF(pdfData, notizen);
     } catch (pdfErr) {
-      console.error('PDF-Generierung fehlgeschlagen:', pdfErr);
+      console.error('Justizakte-PDF-Generierung fehlgeschlagen:', pdfErr);
+    }
+    try {
+      polizeiPdf = await generatePolizeiaktePDF(pdfData, notizen);
+    } catch (pdfErr) {
+      console.error('Polizeiakte-PDF-Generierung fehlgeschlagen:', pdfErr);
+    }
+
+    if (!justizPdf && !polizeiPdf) {
       await interaction.editReply({
         embeds: [createSuccessEmbed(
           '✅ Verfahren abgeschlossen',
-          `**${aktenzeichen}** wurde abgeschlossen.\n⚠️ PDF-Generierung fehlgeschlagen: ${pdfErr instanceof Error ? pdfErr.message : 'Unbekannt'}`
+          `**${aktenzeichen}** wurde abgeschlossen.\n⚠️ PDF-Generierung fehlgeschlagen.`
         )],
       });
       return;
     }
 
-    // PDF in den Akten-Thread hochladen
+    // PDFs in den Akten-Thread hochladen
     const settings = db.prepare('SELECT akten_channel_id FROM server_settings WHERE guild_id = ?')
       .get(guildId) as { akten_channel_id: string | null } | undefined;
 
@@ -1007,12 +1084,25 @@ export class PanelManager {
           if (aktenRow?.forum_post_id) {
             const thread = await this.client.channels.fetch(aktenRow.forum_post_id) as ThreadChannel;
             if (thread) {
-              const filename = `Justizakte_${aktenzeichen.replace(/[^a-zA-Z0-9-]/g, '_')}.pdf`;
-              const attachment = new AttachmentBuilder(pdfBuffer, { name: filename, description: `Justizakte ${aktenzeichen}` });
+              const safeAz = aktenzeichen.replace(/[^a-zA-Z0-9-]/g, '_');
+              const files: AttachmentBuilder[] = [];
+
+              if (justizPdf) {
+                files.push(new AttachmentBuilder(justizPdf, {
+                  name: `Justizakte_${safeAz}.pdf`,
+                  description: `Justizakte ${aktenzeichen}`,
+                }));
+              }
+              if (polizeiPdf) {
+                files.push(new AttachmentBuilder(polizeiPdf, {
+                  name: `Polizei-Verfahrensakte_${safeAz}.pdf`,
+                  description: `Polizei-Verfahrensakte ${aktenzeichen}`,
+                }));
+              }
 
               await thread.send({
-                content: `📄 **Justizakte — ${aktenzeichen}**\nAutomatisch generiert beim Abschluss durch ${interaction.user}.`,
-                files: [attachment],
+                content: `📄 **Akten — ${aktenzeichen}**\nJustizakte & Polizei-Verfahrensakte, automatisch generiert beim Abschluss durch ${interaction.user}.`,
+                files,
               });
               pdfGesendet = true;
             }
@@ -1028,7 +1118,7 @@ export class PanelManager {
       `Verfahren **${aktenzeichen}** wurde abgeschlossen und in die Akten übertragen.`,
       urteil  ? `\n⚖️ **Urteil:** ${urteil}`   : '',
       strafe  ? `\n🔒 **Strafe:** ${strafe}`    : '',
-      pdfGesendet ? '\n📄 **Justizakte** wurde als PDF in den Akten-Thread hochgeladen.' : '\n⚠️ PDF konnte nicht in den Thread hochgeladen werden.',
+      pdfGesendet ? '\n📄 **Justizakte** & **Polizei-Verfahrensakte** wurden als PDF in den Akten-Thread hochgeladen.' : '\n⚠️ PDFs konnten nicht in den Thread hochgeladen werden.',
     ].join('');
 
     await interaction.editReply({ embeds: [createSuccessEmbed('✅ Verfahren abgeschlossen', desc)] });
@@ -1075,11 +1165,96 @@ export class PanelManager {
 
       if (autor) embed.setAuthor({ name: autor });
 
-      await channel.send({ embeds: [embed] });
-      await interaction.editReply({ embeds: [createSuccessEmbed('Embed gesendet', `Das Embed wurde erfolgreich in <#${channelId}> gesendet.`)] });
+      const sent = await channel.send({ embeds: [embed] });
+
+      // Embed in der DB festhalten, damit es später bearbeitet werden kann
+      try {
+        const db = getDatabase();
+        db.prepare(`
+          INSERT INTO gesendete_embeds
+            (guild_id, channel_id, message_id, titel, beschreibung, farbe, autor, fusszeile, erstellt_von)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(guild_id, message_id) DO NOTHING
+        `).run(
+          interaction.guildId!, channelId, sent.id,
+          titel, beschreibung, farbeRaw, autor || null, fusszeile,
+          interaction.user.username
+        );
+      } catch (dbErr) {
+        console.error('Embed konnte nicht in DB gespeichert werden:', dbErr);
+      }
+
+      await interaction.editReply({ embeds: [createSuccessEmbed('Embed gesendet', `Das Embed wurde erfolgreich in <#${channelId}> gesendet.\nDu kannst es später mit **/embed bearbeiten** anpassen.`)] });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
       await interaction.editReply({ embeds: [createErrorEmbed('Fehler beim Senden', msg)] });
+    }
+  }
+
+  // ── Bestehendes Embed bearbeiten ─────────────────────────────────────────────
+  private async handleEmbedEditModal(interaction: ModalSubmitInteraction): Promise<void> {
+    const embedId = parseInt(interaction.customId.replace('modal_embed_edit_', ''), 10);
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const db = getDatabase();
+      const row = db.prepare('SELECT * FROM gesendete_embeds WHERE id = ? AND guild_id = ?')
+        .get(embedId, interaction.guildId!) as {
+          id: number; channel_id: string; message_id: string;
+        } | undefined;
+
+      if (!row) {
+        await interaction.editReply({ embeds: [createErrorEmbed('Nicht gefunden', 'Dieses Embed existiert nicht mehr in der Datenbank.')] });
+        return;
+      }
+
+      const channel = await this.client.channels.fetch(row.channel_id) as TextChannel | null;
+      if (!channel) {
+        await interaction.editReply({ embeds: [createErrorEmbed('Fehler', 'Der Kanal des Embeds wurde nicht gefunden.')] });
+        return;
+      }
+
+      const message = await channel.messages.fetch(row.message_id).catch(() => null);
+      if (!message) {
+        await interaction.editReply({ embeds: [createErrorEmbed('Fehler', 'Die ursprüngliche Nachricht wurde nicht gefunden (evtl. gelöscht).')] });
+        return;
+      }
+
+      const titel = this.safeField(interaction, 'titel');
+      const beschreibung = this.safeField(interaction, 'beschreibung');
+      const farbeRaw = this.safeField(interaction, 'farbe') || '#5865F2';
+      const autor = this.safeField(interaction, 'autor');
+      const fusszeile = this.safeField(interaction, 'fusszeile') || 'Deutscher RP Server';
+
+      let farbe: number;
+      try {
+        farbe = parseInt(farbeRaw.replace('#', ''), 16);
+        if (isNaN(farbe)) farbe = config.colors.server;
+      } catch {
+        farbe = config.colors.server;
+      }
+
+      const embed = new EmbedBuilder()
+        .setColor(farbe as ColorResolvable)
+        .setTitle(titel)
+        .setDescription(beschreibung)
+        .setFooter({ text: fusszeile })
+        .setTimestamp();
+      if (autor) embed.setAuthor({ name: autor });
+
+      await message.edit({ embeds: [embed] });
+
+      // Aktualisierte Werte in der DB speichern
+      db.prepare(`
+        UPDATE gesendete_embeds
+        SET titel = ?, beschreibung = ?, farbe = ?, autor = ?, fusszeile = ?, aktualisiert_am = datetime('now')
+        WHERE id = ?
+      `).run(titel, beschreibung, farbeRaw, autor || null, fusszeile, embedId);
+
+      await interaction.editReply({ embeds: [createSuccessEmbed('Embed aktualisiert', `Das Embed in <#${row.channel_id}> wurde erfolgreich bearbeitet.`)] });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      await interaction.editReply({ embeds: [createErrorEmbed('Fehler beim Bearbeiten', msg)] });
     }
   }
 
@@ -1092,6 +1267,61 @@ export class PanelManager {
     // ── Verfahren Select-Menüs ──
     if (interaction.customId.startsWith('vf_select_')) {
       await this.handleVerfahrenSelect(interaction);
+      return;
+    }
+
+    // ── Embed bearbeiten: Auswahl → vorausgefülltes Modal öffnen ──
+    if (interaction.customId === 'embed_edit_select') {
+      if (!hasAdminPermission(member) && !hasJustizPermission(member)) {
+        await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Du benötigst Admin- oder Justiz-Rechte.')], ephemeral: true });
+        return;
+      }
+      const embedId = parseInt(interaction.values[0] ?? '', 10);
+      const db = getDatabase();
+      const row = db.prepare('SELECT * FROM gesendete_embeds WHERE id = ? AND guild_id = ?')
+        .get(embedId, interaction.guildId!) as {
+          id: number; titel: string | null; beschreibung: string | null;
+          farbe: string | null; autor: string | null; fusszeile: string | null;
+        } | undefined;
+
+      if (!row) {
+        await interaction.reply({ embeds: [createErrorEmbed('Nicht gefunden', 'Dieses Embed existiert nicht mehr.')], ephemeral: true });
+        return;
+      }
+
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_embed_edit_${row.id}`)
+        .setTitle('Embed bearbeiten');
+
+      modal.addComponents(
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder().setCustomId('titel').setLabel('Titel')
+            .setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(256)
+            .setValue(row.titel ?? '')
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder().setCustomId('beschreibung').setLabel('Beschreibung')
+            .setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(4000)
+            .setValue(row.beschreibung ?? '')
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder().setCustomId('farbe').setLabel('Farbe (Hex, z.B. #2563EB)')
+            .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(7)
+            .setValue(row.farbe ?? '#5865F2')
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder().setCustomId('autor').setLabel('Autor-Name (optional)')
+            .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(256)
+            .setValue(row.autor ?? '')
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder().setCustomId('fusszeile').setLabel('Fußzeile (optional)')
+            .setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(2048)
+            .setValue(row.fusszeile ?? 'Deutscher RP Server')
+        ),
+      );
+
+      await interaction.showModal(modal);
       return;
     }
 

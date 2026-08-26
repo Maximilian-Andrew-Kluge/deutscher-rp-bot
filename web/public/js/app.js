@@ -508,8 +508,10 @@ async function loadAkten(page = 1) {
           <td><span class="badge badge-${a.status}">${escHtml(a.status)}</span></td>
           <td>${escHtml(a.erstellt_von || '—')}</td>
           <td>${formatDate(a.erstellt_am)}</td>
-          <td style="display:flex;gap:6px">
+          <td style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn btn-secondary btn-sm" onclick="viewAkte('${escHtml(a.aktenzeichen)}', '${escHtml((a.inhalt||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").substring(0,200))}')">👁️</button>
+            <button class="btn btn-primary btn-sm" title="Justizakte als PDF" onclick="openAktePdf('${escHtml(a.aktenzeichen)}','justiz')">⚖️ PDF</button>
+            <button class="btn btn-primary btn-sm" title="Polizei-Verfahrensakte als PDF" onclick="openAktePdf('${escHtml(a.aktenzeichen)}','polizei')">🚓 PDF</button>
             <button class="btn btn-danger btn-sm" onclick="deleteAkte(${a.id}, '${escHtml(a.aktenzeichen)}')">🗑️</button>
           </td>
         </tr>
@@ -524,6 +526,15 @@ async function loadAkten(page = 1) {
 
 function viewAkte(aktenzeichen, inhalt) {
   alert(`Akte: ${aktenzeichen}\n\n${inhalt || 'Kein Inhalt'}`);
+}
+
+// Öffnet das (neu generierte) PDF einer Akte in einem neuen Tab.
+// typ: 'justiz' | 'polizei'. Cookie-Auth wird vom Browser automatisch mitgesendet.
+function openAktePdf(aktenzeichen, typ) {
+  const guildId = state.rollenData?.guildId || '';
+  const q = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
+  const url = `/api/akten/${encodeURIComponent(aktenzeichen)}/pdf/${typ}${q}`;
+  window.open(url, '_blank');
 }
 
 async function deleteAkte(id, aktenzeichen) {

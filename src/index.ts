@@ -6,7 +6,7 @@ import { runMigrations } from './database/migrations';
 import { VoiceService } from './services/voiceService';
 import { WelcomeService } from './services/welcomeService';
 import { TikTokService } from './services/tiktokService';
-import { initDatabase, closeDatabase } from './database/database';
+import { initDatabase, closeDatabase, getDatabase } from './database/database';
 import { config } from './config/config';
 import { startWebServer } from './web/server';
 
@@ -107,6 +107,35 @@ async function main(): Promise<void> {
     // Benutzer verlässt Voice-Kanal (oder wechselt)
     if (oldState.channelId && (!newState.channelId || newState.channelId !== oldState.channelId)) {
       await voiceService.handleVoiceLeave(oldState.guild.id, oldState.channelId);
+    }
+  });
+
+  // Event: Forum-Thread gelöscht → Akte/Verfahren aus DB entfernen (Server → Website)
+  client.on('threadDelete', (thread) => {
+    try {
+      const db = getDatabase();
+      // Akte anhand des Discord-Thread-IDs finden
+      const akte = db.prepare('SELECT id, aktenzeichen, verfahren_id FROM akten WHERE forum_post_id = ?')
+        .get(thread.id) as { id: number; aktenzeichen: string; verfahren_id: number | null } | undefined;
+
+      if (akte) {
+        db.prepare('DELETE FROM akten WHERE id = ?').run(akte.id);
+        if (akte.verfahren_id) {
+          db.prepare('DELETE FROM verfahren WHERE id = ?').run(akte.verfahren_id);
+        }
+        console.log(`🗑️  Akte ${akte.aktenzeichen} aus DB entfernt (Discord-Thread gelöscht).`);
+        return;
+      }
+
+      // Falls es ein offener Verfahrens-Thread war
+      const verfahren = db.prepare('SELECT id, aktenzeichen FROM verfahren WHERE forum_post_id = ?')
+        .get(thread.id) as { id: number; aktenzeichen: string } | undefined;
+      if (verfahren) {
+        db.prepare('DELETE FROM verfahren WHERE id = ?').run(verfahren.id);
+        console.log(`🗑️  Verfahren ${verfahren.aktenzeichen} aus DB entfernt (Discord-Thread gelöscht).`);
+      }
+    } catch (err) {
+      console.error('Fehler beim Synchronisieren des gelöschten Threads:', err);
     }
   });
 

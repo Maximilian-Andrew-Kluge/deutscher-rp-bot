@@ -154,6 +154,25 @@ export function runMigrations(): void {
     )
   `);
 
+  // Gesendete Embeds — damit sie später bearbeitet werden können
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gesendete_embeds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      message_id TEXT NOT NULL,
+      titel TEXT,
+      beschreibung TEXT,
+      farbe TEXT,
+      autor TEXT,
+      fusszeile TEXT,
+      erstellt_von TEXT,
+      erstellt_am TEXT DEFAULT (datetime('now')),
+      aktualisiert_am TEXT DEFAULT (datetime('now')),
+      UNIQUE(guild_id, message_id)
+    )
+  `);
+
   // Temporäre Voice-Kanäle — unverändert
   db.exec(`
     CREATE TABLE IF NOT EXISTS temp_voice_channels (

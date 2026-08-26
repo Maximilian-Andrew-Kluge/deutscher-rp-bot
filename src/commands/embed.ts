@@ -1,11 +1,12 @@
 import {
   CommandInteraction, SlashCommandBuilder, EmbedBuilder, ColorResolvable,
   TextChannel, GuildMember, ModalBuilder, TextInputBuilder, TextInputStyle,
-  ActionRowBuilder, ChannelType
+  ActionRowBuilder, ChannelType, StringSelectMenuBuilder
 } from 'discord.js';
-import { createErrorEmbed } from '../utils/embeds';
+import { createErrorEmbed, createInfoEmbed } from '../utils/embeds';
 import { hasAdminPermission, hasJustizPermission } from '../utils/permissions';
 import { config } from '../config/config';
+import { getDatabase } from '../database/database';
 
 const VORLAGEN: Record<string, { titel: string; beschreibung: string; farbe: string; autorName: string }> = {
   polizei_ausbildung:        { titel: '🚓 Ausbildung | Polizei',        beschreibung: 'Willkommen bei der Polizeiausbildung des **Deutschen RP Servers**.', farbe: '#2563EB', autorName: '🚓 Deutscher RP Server | Polizei' },
@@ -45,6 +46,10 @@ export const data = new SlashCommandBuilder()
         { name: '🛠️ Update',                       value: 'update' },
       )
     )
+  )
+  .addSubcommand(sub => sub
+    .setName('bearbeiten')
+    .setDescription('Bearbeitet ein bereits erstelltes Embed (Auswahl aus Liste)')
   );
 
 export async function execute(interaction: CommandInteraction): Promise<void> {
@@ -54,6 +59,50 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
   if (!hasAdminPermission(member) && !hasJustizPermission(member)) {
     await interaction.reply({
       embeds: [createErrorEmbed('Keine Berechtigung', 'Du benötigst Admin- oder Justiz-Rechte.')],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const sub = interaction.options.getSubcommand();
+
+  // ── /embed bearbeiten → Auswahl-Menü der bereits erstellten Embeds ──
+  if (sub === 'bearbeiten') {
+    const db = getDatabase();
+    const rows = db.prepare(`
+      SELECT id, channel_id, titel, erstellt_am
+      FROM gesendete_embeds
+      WHERE guild_id = ?
+      ORDER BY aktualisiert_am DESC
+      LIMIT 25
+    `).all(interaction.guildId!) as Array<{ id: number; channel_id: string; titel: string | null; erstellt_am: string }>;
+
+    if (rows.length === 0) {
+      await interaction.reply({
+        embeds: [createInfoEmbed('Keine Embeds gefunden', 'Es wurden noch keine Embeds über den Bot erstellt, die bearbeitet werden können.')],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const options = rows.map(r => {
+      const datum = r.erstellt_am?.split(' ')[0] ?? '';
+      const titel = (r.titel || 'Ohne Titel').slice(0, 90);
+      return {
+        label: titel,
+        description: `#Kanal: ${r.channel_id.slice(-6)} · ${datum}`.slice(0, 100),
+        value: String(r.id),
+      };
+    });
+
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId('embed_edit_select')
+      .setPlaceholder('Wähle das Embed, das du bearbeiten möchtest...')
+      .addOptions(options);
+
+    await interaction.reply({
+      content: '🖊️ **Embed bearbeiten** — wähle aus der Liste:',
+      components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)],
       ephemeral: true,
     });
     return;

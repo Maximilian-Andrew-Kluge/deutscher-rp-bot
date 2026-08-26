@@ -241,18 +241,105 @@ export function createApiRouter(client: Client): Router {
     res.json({ akten, total, page, limit, pages: Math.ceil(total / limit) });
   });
 
-  router.delete('/akten/:id', (req: AuthRequest, res: Response): void => {
+  router.delete('/akten/:id', async (req: AuthRequest, res: Response): Promise<void> => {
     const db = getDatabase();
     const { id } = req.params;
-    const akte = db.prepare('SELECT aktenzeichen FROM akten WHERE id = ?').get(parseInt(id)) as { aktenzeichen: string } | undefined;
+    const akte = db.prepare('SELECT aktenzeichen, verfahren_id, forum_post_id FROM akten WHERE id = ?')
+      .get(parseInt(id)) as { aktenzeichen: string; verfahren_id: number | null; forum_post_id: string | null } | undefined;
     if (!akte) {
       res.status(404).json({ error: 'Akte nicht gefunden' });
       return;
     }
+
+    // Discord-Akten-Thread ebenfalls löschen (Website → Server synchronisieren)
+    if (akte.forum_post_id) {
+      try {
+        const thread = await client.channels.fetch(akte.forum_post_id).catch(() => null);
+        if (thread && 'delete' in thread) {
+          await (thread as { delete: (reason?: string) => Promise<unknown> }).delete('Akte über Website gelöscht');
+        }
+      } catch (err) {
+        console.error('Discord-Thread der Akte konnte nicht gelöscht werden:', err);
+      }
+    }
+
+    // DB-Einträge löschen (Akte + zugehöriges archiviertes Verfahren)
     db.prepare('DELETE FROM akten WHERE id = ?').run(parseInt(id));
+    if (akte.verfahren_id) {
+      db.prepare('DELETE FROM verfahren WHERE id = ?').run(akte.verfahren_id);
+    }
     db.prepare('INSERT INTO admin_logs (username, aktion, details) VALUES (?, ?, ?)')
       .run(req.admin!.username, 'akte_delete', `Aktenzeichen: ${akte.aktenzeichen}`);
     res.json({ ok: true });
+  });
+
+  // ── PDF-Download einer Akte (Justiz- oder Polizei-Verfahrensakte) ──────────
+  // Das PDF wird bei Bedarf aus den gespeicherten Verfahrensdaten neu generiert,
+  // damit es immer den aktuellen Stand widerspiegelt und auch für Alt-Akten geht.
+  router.get('/akten/:aktenzeichen/pdf/:typ', async (req: AuthRequest, res: Response): Promise<void> => {
+    const guildId = (req.query.guildId as string) || client.guilds.cache.first()?.id || '';
+    const { aktenzeichen, typ } = req.params;
+
+    if (typ !== 'justiz' && typ !== 'polizei') {
+      res.status(400).json({ error: 'Ungültiger PDF-Typ (justiz oder polizei)' });
+      return;
+    }
+
+    const db = getDatabase();
+
+    // Akte holen (für verfahren_id) und zugehöriges Verfahren laden
+    const akte = db.prepare('SELECT * FROM akten WHERE guild_id = ? AND aktenzeichen = ?')
+      .get(guildId, aktenzeichen) as { verfahren_id: number | null; erstellt_von: string } | undefined;
+    if (!akte) {
+      res.status(404).json({ error: 'Akte nicht gefunden' });
+      return;
+    }
+
+    let verfahren = akte.verfahren_id
+      ? db.prepare('SELECT * FROM verfahren WHERE id = ?').get(akte.verfahren_id) as Record<string, unknown> | undefined
+      : undefined;
+    // Fallback: über Aktenzeichen suchen (falls verfahren_id fehlt)
+    if (!verfahren) {
+      verfahren = db.prepare('SELECT * FROM verfahren WHERE guild_id = ? AND aktenzeichen = ?')
+        .get(guildId, aktenzeichen) as Record<string, unknown> | undefined;
+    }
+    if (!verfahren) {
+      res.status(404).json({ error: 'Zugehöriges Verfahren nicht gefunden — PDF kann nicht erstellt werden.' });
+      return;
+    }
+
+    // Notizen laden
+    const notizen = db.prepare(
+      'SELECT id, notiz, erstellt_von, erstellt_von_id, erstellt_am FROM verfahren_notizen WHERE verfahren_id = ? ORDER BY id ASC'
+    ).all(verfahren.id) as unknown as import('../../utils/embeds').NotizData[];
+
+    // "Abgeschlossen durch" als lesbaren Namen auflösen
+    let abgeschlossenName = (verfahren.abgeschlossen_von as string) || '';
+    if (abgeschlossenName) {
+      const user = await client.users.fetch(abgeschlossenName).catch(() => null);
+      if (user) abgeschlossenName = user.tag;
+    }
+
+    const pdfData = {
+      ...(verfahren as unknown as import('../../services/verfahrenService').VerfahrenRow),
+      abgeschlossen_von_name: abgeschlossenName,
+    };
+
+    try {
+      const { generateJustizaktePDF, generatePolizeiaktePDF } = await import('../../services/pdfService');
+      const buffer = typ === 'justiz'
+        ? await generateJustizaktePDF(pdfData, notizen)
+        : await generatePolizeiaktePDF(pdfData, notizen);
+
+      const safeAz = aktenzeichen.replace(/[^a-zA-Z0-9-]/g, '_');
+      const label = typ === 'justiz' ? 'Justizakte' : 'Polizei-Verfahrensakte';
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${label}_${safeAz}.pdf"`);
+      res.send(buffer);
+    } catch (err) {
+      console.error('PDF-Generierung (Web) fehlgeschlagen:', err);
+      res.status(500).json({ error: 'PDF konnte nicht erstellt werden' });
+    }
   });
 
   // ════════════════════════════════════════════════════════════════════════════
