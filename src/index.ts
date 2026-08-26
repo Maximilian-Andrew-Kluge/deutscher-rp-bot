@@ -73,8 +73,8 @@ async function main(): Promise<void> {
   // Event: Interaktion erstellt
   client.on('interactionCreate', async (interaction) => {
     try {
-      if (interaction.isChatInputCommand()) {
-        await commandManager.executeCommand(interaction);
+      if (interaction.isChatInputCommand() || interaction.isContextMenuCommand()) {
+        await commandManager.executeCommand(interaction as import('discord.js').CommandInteraction);
       } else {
         await panelManager.handleInteraction(interaction);
       }

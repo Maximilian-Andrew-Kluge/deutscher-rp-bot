@@ -719,6 +719,8 @@ export class PanelManager {
       await this.handleEmbedSendenModal(interaction);
     } else if (id.startsWith('modal_embed_edit_')) {
       await this.handleEmbedEditModal(interaction);
+    } else if (id.startsWith('modal_embed_ctx_')) {
+      await this.handleEmbedContextEditModal(interaction);
     }
   }
 
@@ -1252,6 +1254,81 @@ export class PanelManager {
       `).run(titel, beschreibung, farbeRaw, autor || null, fusszeile, embedId);
 
       await interaction.editReply({ embeds: [createSuccessEmbed('Embed aktualisiert', `Das Embed in <#${row.channel_id}> wurde erfolgreich bearbeitet.`)] });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      await interaction.editReply({ embeds: [createErrorEmbed('Fehler beim Bearbeiten', msg)] });
+    }
+  }
+
+  // ── Embed über Rechtsklick-Kontextmenü bearbeiten (auch Alt-Embeds) ──────────
+  private async handleEmbedContextEditModal(interaction: ModalSubmitInteraction): Promise<void> {
+    // customId: modal_embed_ctx_<channelId>_<messageId>
+    const rest = interaction.customId.replace('modal_embed_ctx_', '');
+    const [channelId, messageId] = rest.split('_');
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      if (!channelId || !messageId) {
+        await interaction.editReply({ embeds: [createErrorEmbed('Fehler', 'Ungültige Referenz zur Nachricht.')] });
+        return;
+      }
+
+      const channel = await this.client.channels.fetch(channelId) as TextChannel | null;
+      if (!channel) {
+        await interaction.editReply({ embeds: [createErrorEmbed('Fehler', 'Der Kanal wurde nicht gefunden.')] });
+        return;
+      }
+
+      const message = await channel.messages.fetch(messageId).catch(() => null);
+      if (!message) {
+        await interaction.editReply({ embeds: [createErrorEmbed('Fehler', 'Die Nachricht wurde nicht gefunden (evtl. gelöscht).')] });
+        return;
+      }
+
+      const titel = this.safeField(interaction, 'titel');
+      const beschreibung = this.safeField(interaction, 'beschreibung');
+      const farbeRaw = this.safeField(interaction, 'farbe') || '#5865F2';
+      const autor = this.safeField(interaction, 'autor');
+      const fusszeile = this.safeField(interaction, 'fusszeile') || 'Deutscher RP Server';
+
+      let farbe: number;
+      try {
+        farbe = parseInt(farbeRaw.replace('#', ''), 16);
+        if (isNaN(farbe)) farbe = config.colors.server;
+      } catch {
+        farbe = config.colors.server;
+      }
+
+      const embed = new EmbedBuilder()
+        .setColor(farbe as ColorResolvable)
+        .setTitle(titel)
+        .setDescription(beschreibung)
+        .setFooter({ text: fusszeile })
+        .setTimestamp();
+      if (autor) embed.setAuthor({ name: autor });
+
+      await message.edit({ embeds: [embed] });
+
+      // In der DB festhalten/aktualisieren, damit es auch per /embed bearbeiten erscheint
+      try {
+        const db = getDatabase();
+        db.prepare(`
+          INSERT INTO gesendete_embeds
+            (guild_id, channel_id, message_id, titel, beschreibung, farbe, autor, fusszeile, erstellt_von)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(guild_id, message_id) DO UPDATE SET
+            titel = excluded.titel, beschreibung = excluded.beschreibung, farbe = excluded.farbe,
+            autor = excluded.autor, fusszeile = excluded.fusszeile, aktualisiert_am = datetime('now')
+        `).run(
+          interaction.guildId!, channelId, messageId,
+          titel, beschreibung, farbeRaw, autor || null, fusszeile,
+          interaction.user.username
+        );
+      } catch (dbErr) {
+        console.error('Embed konnte nicht in DB gespeichert werden:', dbErr);
+      }
+
+      await interaction.editReply({ embeds: [createSuccessEmbed('Embed aktualisiert', `Das Embed in <#${channelId}> wurde erfolgreich bearbeitet.`)] });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
       await interaction.editReply({ embeds: [createErrorEmbed('Fehler beim Bearbeiten', msg)] });
