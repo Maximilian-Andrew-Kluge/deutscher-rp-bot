@@ -106,33 +106,28 @@ export class SupportService {
 
   /**
    * Alle online Supporter im Server finden (Status: online, idle oder dnd).
-   * Nutzt guild.members.fetch() um sicherzustellen, dass alle Mitglieder geladen sind.
+   * Ein Mitglied gilt als Supporter wenn es MINDESTENS EINE der Support-Rollen hat.
    */
   private async getOnlineSupporters(guild: import('discord.js').Guild): Promise<GuildMember[]> {
     const supporters: GuildMember[] = [];
 
-    // Mitglieder mit Support-Rollen aktiv vom Server laden
-    for (const roleId of SUPPORT_ROLES) {
-      try {
-        const role = guild.roles.cache.get(roleId);
-        if (!role) continue;
-        // Alle Mitglieder mit dieser Rolle fetchen (inklusive Presence)
-        const members = await guild.members.fetch({ withPresences: true });
-        members.forEach(m => {
-          if (m.user.bot) return;
-          if (!m.roles.cache.has(roleId)) return;
-          // Doppelte vermeiden
-          if (supporters.some(s => s.id === m.id)) return;
-          // Nur explizit online/idle/dnd zählt als erreichbar
-          const status = m.presence?.status;
-          if (status === 'online' || status === 'idle' || status === 'dnd') {
-            supporters.push(m);
-          }
-        });
-        break; // fetch() lädt alle Mitglieder, wir brauchen es nur einmal
-      } catch (err) {
-        console.error(`Fehler beim Laden der Supporter-Rolle ${roleId}:`, err);
-      }
+    try {
+      // Alle Mitglieder mit Presence laden
+      const members = await guild.members.fetch({ withPresences: true });
+
+      members.forEach(m => {
+        if (m.user.bot) return;
+        // Prüfen ob mindestens EINE der Support-Rollen vorhanden ist
+        const hasRole = SUPPORT_ROLES.some(roleId => m.roles.cache.has(roleId));
+        if (!hasRole) return;
+        // Nur explizit online/idle/dnd zählt als erreichbar
+        const status = m.presence?.status;
+        if (status === 'online' || status === 'idle' || status === 'dnd') {
+          supporters.push(m);
+        }
+      });
+    } catch (err) {
+      console.error('Fehler beim Laden der Supporter:', err);
     }
 
     return supporters;
