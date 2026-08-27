@@ -8,7 +8,7 @@ import {
   UserSelectMenuBuilder, UserSelectMenuInteraction, VoiceChannel, PermissionFlagsBits, ChannelType,
 } from 'discord.js';
 import { VerfahrenService } from '../services/verfahrenService';
-import { hasJustizPermission, hasAdminPermission } from '../utils/permissions';
+import { hasJustizPermission, hasAdminPermission, hasModPermission } from '../utils/permissions';
 import { createErrorEmbed, createSuccessEmbed, createInfoEmbed, createWarningEmbed } from '../utils/embeds';
 import { config } from '../config/config';
 import { getDatabase } from '../database/database';
@@ -54,6 +54,16 @@ export class PanelManager {
     // ── TempVoice Interface ──
     if (id.startsWith('tempvoice_')) {
       await this.handleTempVoiceButton(interaction, member);
+      return;
+    }
+
+    // ── Admin-Panel Buttons (permanentes Panel im Kanal) ──
+    if (id.startsWith('admin_panel_')) {
+      if (!hasAdminPermission(member) && !hasModPermission(member)) {
+        await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Du benötigst mindestens Moderator-Rechte.')], ephemeral: true });
+        return;
+      }
+      await this.handleAdminPanelButton(interaction, member);
       return;
     }
 
@@ -1921,6 +1931,73 @@ export class PanelManager {
     }
 
     return { channel, ownerId: tempRow.owner_id };
+  }
+
+  // ── Admin-Panel Button-Handler (öffnet die gleichen Modals wie /admin menu) ──
+  private async handleAdminPanelButton(interaction: ButtonInteraction, member: GuildMember): Promise<void> {
+    const action = interaction.customId.replace('admin_panel_', '');
+    const isAdmin = hasAdminPermission(member);
+
+    // Server-Info braucht kein Modal
+    if (action === 'server_info') {
+      const guild = interaction.guild!;
+      const bots = guild.members.cache.filter(m => m.user.bot).size;
+      const embed = new EmbedBuilder()
+        .setColor(config.colors.server as ColorResolvable)
+        .setTitle(`📊 Server-Info: ${guild.name}`)
+        .setThumbnail(guild.iconURL())
+        .addFields(
+          { name: '👥 Mitglieder', value: `${guild.memberCount}`, inline: true },
+          { name: '🤖 Bots', value: `${bots}`, inline: true },
+          { name: '👤 Menschen', value: `${guild.memberCount - bots}`, inline: true },
+          { name: '💬 Text-Kanäle', value: `${guild.channels.cache.filter(c => c.type === 0).size}`, inline: true },
+          { name: '🎙️ Voice-Kanäle', value: `${guild.channels.cache.filter(c => c.type === 2).size}`, inline: true },
+          { name: '🎭 Rollen', value: `${guild.roles.cache.size}`, inline: true },
+          { name: '💎 Boost-Level', value: `Stufe ${guild.premiumTier}`, inline: true },
+          { name: '🚀 Boosts', value: `${guild.premiumSubscriptionCount ?? 0}`, inline: true },
+          { name: '📅 Erstellt', value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:D>`, inline: true },
+        )
+        .setTimestamp();
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      return;
+    }
+
+    // Admin-only Aktionen prüfen
+    if (['ban', 'unban', 'warn_entf'].includes(action) && !isAdmin) {
+      await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Diese Aktion erfordert Admin-Rechte.')], ephemeral: true });
+      return;
+    }
+
+    // Modal-Map: customId → Modal-Parameter
+    const modalMap: Record<string, { customId: string; title: string; fields: { id: string; label: string; placeholder?: string; style?: 1|2; required?: boolean }[] }> = {
+      spieler:   { customId: 'modal_admin_spieler', title: '👤 Spieler-Info', fields: [{ id: 'user_id', label: 'Discord-ID oder @Erwähnung', placeholder: '123456789012345678', required: true }] },
+      warn:      { customId: 'modal_admin_warn', title: '⚠️ Spieler verwarnen', fields: [{ id: 'user_id', label: 'Discord-ID', placeholder: '123456789012345678', required: true }, { id: 'grund', label: 'Begründung', placeholder: 'Grund der Verwarnung...', style: 2, required: true }] },
+      warnungen: { customId: 'modal_admin_warnungen', title: '📋 Verwarnungen anzeigen', fields: [{ id: 'user_id', label: 'Discord-ID', placeholder: '123456789012345678', required: true }] },
+      kick:      { customId: 'modal_admin_kick', title: '🦶 Spieler kicken', fields: [{ id: 'user_id', label: 'Discord-ID', placeholder: '123456789012345678', required: true }, { id: 'grund', label: 'Begründung (optional)', placeholder: 'Kein Grund angegeben', required: false }] },
+      ban:       { customId: 'modal_admin_ban', title: '🔨 Spieler bannen', fields: [{ id: 'user_id', label: 'Discord-ID', placeholder: '123456789012345678', required: true }, { id: 'grund', label: 'Begründung (optional)', placeholder: 'Kein Grund angegeben', required: false }, { id: 'tage', label: 'Nachrichten löschen (0-7 Tage)', placeholder: '0', required: false }] },
+      unban:     { customId: 'modal_admin_unban', title: '✅ Spieler entbannen', fields: [{ id: 'user_id', label: 'Discord User-ID', placeholder: '123456789012345678', required: true }] },
+      warn_entf: { customId: 'modal_admin_warn_entf', title: '🗑️ Verwarnung entfernen', fields: [{ id: 'warn_id', label: 'Warn-ID', placeholder: 'z.B. 42', required: true }] },
+      chat:      { customId: 'modal_admin_chat', title: '🧹 Chat leeren', fields: [{ id: 'menge', label: 'Anzahl Nachrichten (1–100)', placeholder: '10', required: true }] },
+    };
+
+    const def = modalMap[action];
+    if (!def) return;
+
+    const modal = new ModalBuilder().setCustomId(def.customId).setTitle(def.title);
+    def.fields.forEach(f => {
+      modal.addComponents(
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId(f.id)
+            .setLabel(f.label)
+            .setStyle(f.style === 2 ? TextInputStyle.Paragraph : TextInputStyle.Short)
+            .setRequired(f.required ?? true)
+            .setPlaceholder(f.placeholder ?? '')
+        )
+      );
+    });
+
+    await interaction.showModal(modal);
   }
 
   private async handleTempVoiceButton(interaction: ButtonInteraction, member: GuildMember): Promise<void> {

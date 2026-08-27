@@ -10,10 +10,12 @@ import { hasAdminPermission, hasModPermission } from '../utils/permissions';
 import { createErrorEmbed, createSuccessEmbed } from '../utils/embeds';
 import { config } from '../config/config';
 
-// ── Command: nur /admin — öffnet das Menü ────────────────────────────────────
+// ── Command: /admin und /admin panel ──────────────────────────────────────────
 export const data = new SlashCommandBuilder()
   .setName('admin')
-  .setDescription('Öffnet das Admin-Verwaltungs-Menü');
+  .setDescription('Admin-Verwaltung')
+  .addSubcommand(sub => sub.setName('menu').setDescription('Öffnet das Admin-Menü (nur für dich sichtbar)'))
+  .addSubcommand(sub => sub.setName('panel').setDescription('Postet ein permanentes Admin-Panel in diesen Kanal'));
 
 export async function execute(interaction: CommandInteraction): Promise<void> {
   if (!interaction.isChatInputCommand()) return;
@@ -28,7 +30,59 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
   }
 
   const isAdmin = hasAdminPermission(member);
+  const sub = interaction.options.getSubcommand();
 
+  // ── /admin panel → permanentes Panel in den Kanal posten ──
+  if (sub === 'panel') {
+    if (!isAdmin) {
+      await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Admins können das Panel posten.')], ephemeral: true });
+      return;
+    }
+
+    const channel = interaction.channel as TextChannel;
+    const panelEmbed = new EmbedBuilder()
+      .setColor(config.colors.server as ColorResolvable)
+      .setTitle('🛡️ Admin-Panel')
+      .setDescription(
+        'Verwende die Buttons unten, um Moderations-Aktionen auszuführen.\n\n' +
+        '**Verfügbare Aktionen:**\n' +
+        '👤 Spieler-Info anzeigen\n' +
+        '⚠️ Spieler verwarnen\n' +
+        '📋 Verwarnungen eines Spielers anzeigen\n' +
+        '🦶 Spieler kicken\n' +
+        '🔨 Spieler bannen\n' +
+        '✅ Spieler entbannen\n' +
+        '🗑️ Verwarnung entfernen\n' +
+        '🧹 Chat leeren\n' +
+        '📊 Server-Statistiken'
+      )
+      .setFooter({ text: 'Deutscher RP Server | Admin-Panel' })
+      .setTimestamp();
+
+    const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('admin_panel_spieler').setLabel('Spieler-Info').setStyle(ButtonStyle.Secondary).setEmoji('👤'),
+      new ButtonBuilder().setCustomId('admin_panel_warn').setLabel('Verwarnen').setStyle(ButtonStyle.Danger).setEmoji('⚠️'),
+      new ButtonBuilder().setCustomId('admin_panel_warnungen').setLabel('Warns anzeigen').setStyle(ButtonStyle.Secondary).setEmoji('📋'),
+      new ButtonBuilder().setCustomId('admin_panel_kick').setLabel('Kick').setStyle(ButtonStyle.Danger).setEmoji('🦶'),
+    );
+
+    const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('admin_panel_ban').setLabel('Ban').setStyle(ButtonStyle.Danger).setEmoji('🔨'),
+      new ButtonBuilder().setCustomId('admin_panel_unban').setLabel('Entbannen').setStyle(ButtonStyle.Success).setEmoji('✅'),
+      new ButtonBuilder().setCustomId('admin_panel_warn_entf').setLabel('Warn entfernen').setStyle(ButtonStyle.Secondary).setEmoji('🗑️'),
+      new ButtonBuilder().setCustomId('admin_panel_chat').setLabel('Chat leeren').setStyle(ButtonStyle.Secondary).setEmoji('🧹'),
+    );
+
+    const row3 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('admin_panel_server_info').setLabel('Server-Info').setStyle(ButtonStyle.Primary).setEmoji('📊'),
+    );
+
+    await channel.send({ embeds: [panelEmbed], components: [row1, row2, row3] });
+    await interaction.reply({ embeds: [createSuccessEmbed('Panel gepostet', 'Das Admin-Panel wurde in diesen Kanal gesendet.')], ephemeral: true });
+    return;
+  }
+
+  // ── /admin menu → ephemeral Menü (wie bisher) ──
   await interaction.reply({
     embeds: [buildMenuEmbed(interaction.user.username, isAdmin)],
     components: buildMenuComponents(isAdmin),
