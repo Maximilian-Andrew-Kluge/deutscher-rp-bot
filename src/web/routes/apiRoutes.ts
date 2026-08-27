@@ -555,6 +555,101 @@ export function createApiRouter(client: Client): Router {
     res.json({ ok: true });
   });
 
+  // ── VERWARNUNG ERTEILEN (Website) ──
+  router.post('/warns', async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
+    const guild = client.guilds.cache.first();
+    if (!guild) { res.status(500).json({ error: 'Server nicht gefunden' }); return; }
+
+    const { userId, grund } = req.body as { userId?: string; grund?: string };
+    if (!userId || !grund) { res.status(400).json({ error: 'userId und grund erforderlich' }); return; }
+
+    let user;
+    try { user = await client.users.fetch(userId); } catch { res.status(404).json({ error: 'Benutzer nicht gefunden' }); return; }
+
+    const result = db.prepare('INSERT INTO warns (guild_id, benutzer_id, benutzer_name, moderator_id, moderator_name, grund) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(guild.id, user.id, user.tag, 'web-admin', `Web: ${req.admin!.username}`, grund);
+    const total = (db.prepare('SELECT COUNT(*) as c FROM warns WHERE guild_id = ? AND benutzer_id = ?').get(guild.id, user.id) as { c: number }).c;
+
+    db.prepare('INSERT INTO mod_logs (guild_id, moderator_id, moderator_name, aktion, ziel_id, ziel_name, grund) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(guild.id, 'web-admin', req.admin!.username, 'warn', user.id, user.tag, grund);
+    db.prepare('INSERT INTO admin_logs (username, aktion, details) VALUES (?, ?, ?)')
+      .run(req.admin!.username, 'warn', `${user.tag}: ${grund}`);
+
+    try { await user.send(`⚠️ Du wurdest auf **${guild.name}** verwarnt.\n**Grund:** ${grund}`); } catch { /* DMs zu */ }
+
+    res.json({ ok: true, warnId: result.lastInsertRowid, total });
+  });
+
+  // ── KICK (Website) ──
+  router.post('/kick', async (req: AuthRequest, res: Response): Promise<void> => {
+    const guild = client.guilds.cache.first();
+    if (!guild) { res.status(500).json({ error: 'Server nicht gefunden' }); return; }
+
+    const { userId, grund } = req.body as { userId?: string; grund?: string };
+    if (!userId) { res.status(400).json({ error: 'userId erforderlich' }); return; }
+    const reason = grund || 'Kein Grund angegeben (via Web-Panel)';
+
+    let member;
+    try { member = await guild.members.fetch(userId); } catch { res.status(404).json({ error: 'Mitglied nicht auf dem Server' }); return; }
+    if (!member.kickable) { res.status(403).json({ error: 'Kann nicht gekickt werden (hoehere Rolle)' }); return; }
+
+    try { await member.user.send(`🦶 Du wurdest von **${guild.name}** gekickt.\n**Grund:** ${reason}`); } catch { /* */ }
+    await member.kick(`Web-Panel: ${req.admin!.username} — ${reason}`);
+
+    const db = getDatabase();
+    db.prepare('INSERT INTO mod_logs (guild_id, moderator_id, moderator_name, aktion, ziel_id, ziel_name, grund) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(guild.id, 'web-admin', req.admin!.username, 'kick', member.id, member.user.tag, reason);
+    db.prepare('INSERT INTO admin_logs (username, aktion, details) VALUES (?, ?, ?)')
+      .run(req.admin!.username, 'kick', `${member.user.tag}: ${reason}`);
+
+    res.json({ ok: true });
+  });
+
+  // ── BAN (Website) ──
+  router.post('/ban', async (req: AuthRequest, res: Response): Promise<void> => {
+    const guild = client.guilds.cache.first();
+    if (!guild) { res.status(500).json({ error: 'Server nicht gefunden' }); return; }
+
+    const { userId, grund, tage } = req.body as { userId?: string; grund?: string; tage?: number };
+    if (!userId) { res.status(400).json({ error: 'userId erforderlich' }); return; }
+    const reason = grund || 'Kein Grund angegeben (via Web-Panel)';
+    const deleteDays = Math.min(7, Math.max(0, tage || 0));
+
+    let user;
+    try { user = await client.users.fetch(userId); } catch { res.status(404).json({ error: 'Benutzer nicht gefunden' }); return; }
+
+    try { await user.send(`🔨 Du wurdest von **${guild.name}** gebannt.\n**Grund:** ${reason}`); } catch { /* */ }
+    await guild.bans.create(userId, { reason: `Web-Panel: ${req.admin!.username} — ${reason}`, deleteMessageSeconds: deleteDays * 86400 });
+
+    const db = getDatabase();
+    db.prepare('INSERT INTO mod_logs (guild_id, moderator_id, moderator_name, aktion, ziel_id, ziel_name, grund) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(guild.id, 'web-admin', req.admin!.username, 'ban', user.id, user.tag, reason);
+    db.prepare('INSERT INTO admin_logs (username, aktion, details) VALUES (?, ?, ?)')
+      .run(req.admin!.username, 'ban', `${user.tag}: ${reason}`);
+
+    res.json({ ok: true });
+  });
+
+  // ── UNBAN (Website) ──
+  router.post('/unban', async (req: AuthRequest, res: Response): Promise<void> => {
+    const guild = client.guilds.cache.first();
+    if (!guild) { res.status(500).json({ error: 'Server nicht gefunden' }); return; }
+
+    const { userId } = req.body as { userId?: string };
+    if (!userId) { res.status(400).json({ error: 'userId erforderlich' }); return; }
+
+    try {
+      await guild.bans.remove(userId, `Entbannt via Web-Panel: ${req.admin!.username}`);
+      const db = getDatabase();
+      db.prepare('INSERT INTO admin_logs (username, aktion, details) VALUES (?, ?, ?)')
+        .run(req.admin!.username, 'unban', `User-ID: ${userId}`);
+      res.json({ ok: true });
+    } catch {
+      res.status(404).json({ error: 'Benutzer ist nicht gebannt' });
+    }
+  });
+
   // ════════════════════════════════════════════════════════════════════════════
   // MOD-LOGS
   // ════════════════════════════════════════════════════════════════════════════

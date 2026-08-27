@@ -27,6 +27,9 @@ export const data = new SlashCommandBuilder()
     .addChannelOption(o => o.setName('feuerwehr').setDescription('Kanal für Feuerwehr-Ausbildung').setRequired(false).addChannelTypes(ChannelType.GuildText))
     .addChannelOption(o => o.setName('rettungsdienst').setDescription('Kanal für Rettungsdienst-Ausbildung').setRequired(false).addChannelTypes(ChannelType.GuildText))
     .addChannelOption(o => o.setName('justiz').setDescription('Kanal für Justiz-Ausbildung').setRequired(false).addChannelTypes(ChannelType.GuildText))
+    .addChannelOption(o => o.setName('support').setDescription('Kanal für Support-Ausbildung').setRequired(false).addChannelTypes(ChannelType.GuildText))
+    .addChannelOption(o => o.setName('adac').setDescription('Kanal für ADAC-Ausbildung').setRequired(false).addChannelTypes(ChannelType.GuildText))
+    .addChannelOption(o => o.setName('admin').setDescription('Kanal für Admin-Ausbildung').setRequired(false).addChannelTypes(ChannelType.GuildText))
   )
   .addSubcommand(sub => sub
     .setName('voice')
@@ -135,8 +138,11 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
     const feuerwehr = interaction.options.getChannel('feuerwehr');
     const rettungsdienst = interaction.options.getChannel('rettungsdienst');
     const justiz = interaction.options.getChannel('justiz');
+    const support = interaction.options.getChannel('support');
+    const adac = interaction.options.getChannel('adac');
+    const admin = interaction.options.getChannel('admin');
 
-    if (!polizei && !feuerwehr && !rettungsdienst && !justiz) {
+    if (!polizei && !feuerwehr && !rettungsdienst && !justiz && !support && !adac && !admin) {
       await interaction.reply({ embeds: [createErrorEmbed('Nichts angegeben', 'Bitte gib mindestens einen Ausbildungs-Kanal an.')], ephemeral: true });
       return;
     }
@@ -157,6 +163,18 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
     if (justiz) {
       db.prepare(`UPDATE server_settings SET justiz_ausbildung_channel_id = ? WHERE guild_id = ?`).run(justiz.id, interaction.guildId!);
       updates.push(`✅ **⚖️ Justiz-Ausbildung:** ${justiz}`);
+    }
+    if (support) {
+      db.prepare(`UPDATE server_settings SET support_ausbildung_channel_id = ? WHERE guild_id = ?`).run(support.id, interaction.guildId!);
+      updates.push(`✅ **🎧 Support-Ausbildung:** ${support}`);
+    }
+    if (adac) {
+      db.prepare(`UPDATE server_settings SET adac_ausbildung_channel_id = ? WHERE guild_id = ?`).run(adac.id, interaction.guildId!);
+      updates.push(`✅ **🚗 ADAC-Ausbildung:** ${adac}`);
+    }
+    if (admin) {
+      db.prepare(`UPDATE server_settings SET admin_ausbildung_channel_id = ? WHERE guild_id = ?`).run(admin.id, interaction.guildId!);
+      updates.push(`✅ **🛡️ Admin-Ausbildung:** ${admin}`);
     }
 
     await interaction.reply({ embeds: [createSuccessEmbed('Ausbildungs-Kanäle konfiguriert', updates.join('\n'))], ephemeral: true });

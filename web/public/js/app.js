@@ -193,11 +193,11 @@ async function loadSettings() {
     const voiceOpts = '<option value="">Nicht gesetzt</option>' + vc.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
     const catOpts = '<option value="">Nicht gesetzt</option>' + cats.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
 
-    ['sel-verfahren','sel-akten','sel-log','sel-justiz-aus','sel-pol-aus','sel-fw-aus','sel-rd-aus','sel-ankuend','sel-willkommen','sel-live'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = textOpts; });
+    ['sel-verfahren','sel-akten','sel-log','sel-justiz-aus','sel-pol-aus','sel-fw-aus','sel-rd-aus','sel-ankuend','sel-willkommen','sel-live','sel-support-aus','sel-adac-aus','sel-admin-aus'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = textOpts; });
     const ve = document.getElementById('sel-voice-create'); if (ve) ve.innerHTML = voiceOpts;
     const ce = document.getElementById('sel-voice-cat'); if (ce) ce.innerHTML = catOpts;
 
-    const fm = { 'sel-verfahren':'verfahren_channel_id','sel-akten':'akten_channel_id','sel-log':'log_channel_id','sel-justiz-aus':'justiz_ausbildung_channel_id','sel-pol-aus':'polizei_ausbildung_channel_id','sel-fw-aus':'feuerwehr_ausbildung_channel_id','sel-rd-aus':'rettungsdienst_ausbildung_channel_id','sel-ankuend':'ankuendigung_channel_id','sel-willkommen':'willkommen_channel_id','sel-live':'live_channel_id','sel-voice-create':'voice_create_channel_id','sel-voice-cat':'voice_category_id' };
+    const fm = { 'sel-verfahren':'verfahren_channel_id','sel-akten':'akten_channel_id','sel-log':'log_channel_id','sel-justiz-aus':'justiz_ausbildung_channel_id','sel-pol-aus':'polizei_ausbildung_channel_id','sel-fw-aus':'feuerwehr_ausbildung_channel_id','sel-rd-aus':'rettungsdienst_ausbildung_channel_id','sel-ankuend':'ankuendigung_channel_id','sel-willkommen':'willkommen_channel_id','sel-live':'live_channel_id','sel-voice-create':'voice_create_channel_id','sel-voice-cat':'voice_category_id','sel-support-aus':'support_ausbildung_channel_id','sel-adac-aus':'adac_ausbildung_channel_id','sel-admin-aus':'admin_ausbildung_channel_id' };
     Object.entries(fm).forEach(([id,f]) => { const el = document.getElementById(id); if (el && s[f]) el.value = s[f]; });
     document.getElementById('settings-form').dataset.guildId = data.guildId;
   } catch (err) { toast('Einstellungen: ' + err.message, 'error'); }
@@ -351,6 +351,13 @@ async function viewSpieler(userId) {
     document.getElementById('spieler-modal').classList.remove('hidden');
   } catch (err) { toast(err.message,'error'); }
 }
+
+// ══════════════════════════════════════════════════════════════════
+// WEB-MODERATION (Warn, Kick, Ban von der Website)
+// ══════════════════════════════════════════════════════════════════
+async function webWarn(e) { e.preventDefault(); const u=document.getElementById('mod-warn-user').value, g=document.getElementById('mod-warn-grund').value; if(!u||!g){toast('User-ID und Grund erforderlich','error');return false;} try{await api('POST','/api/warns',{userId:u,grund:g});toast('Verwarnung erteilt','success');document.getElementById('form-warn').reset();}catch(err){toast(err.message,'error');}return false; }
+async function webKick(e) { e.preventDefault(); const u=document.getElementById('mod-kick-user').value, g=document.getElementById('mod-kick-grund').value; if(!u){toast('User-ID erforderlich','error');return false;} if(!confirm('Wirklich kicken?'))return false; try{await api('POST','/api/kick',{userId:u,grund:g});toast('Spieler gekickt','success');document.getElementById('form-kick').reset();}catch(err){toast(err.message,'error');}return false; }
+async function webBan(e) { e.preventDefault(); const u=document.getElementById('mod-ban-user').value, g=document.getElementById('mod-ban-grund').value, t=parseInt(document.getElementById('mod-ban-tage').value)||0; if(!u){toast('User-ID erforderlich','error');return false;} if(!confirm('Wirklich bannen? Das kann nicht einfach rueckgaengig gemacht werden!'))return false; try{await api('POST','/api/ban',{userId:u,grund:g,tage:t});toast('Spieler gebannt','success');document.getElementById('form-ban').reset();}catch(err){toast(err.message,'error');}return false; }
 
 // ══════════════════════════════════════════════════════════════════
 // VERWARNUNGEN

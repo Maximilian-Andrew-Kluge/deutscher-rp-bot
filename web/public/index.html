@@ -183,6 +183,32 @@
             <button class="btn btn-secondary btn-sm" onclick="loadSpieler()">Aktualisieren</button>
           </div>
         </div>
+
+        <!-- Moderations-Aktionen -->
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-header">Moderations-Aktionen</div>
+          <div class="card-body">
+            <div class="settings-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+              <form id="form-warn" onsubmit="return webWarn(event)">
+                <div class="form-group"><label>User-ID</label><input type="text" id="mod-warn-user" placeholder="Discord User-ID" required /></div>
+                <div class="form-group"><label>Grund</label><input type="text" id="mod-warn-grund" placeholder="Grund..." required /></div>
+                <button type="submit" class="btn btn-danger btn-sm btn-full">Verwarnen</button>
+              </form>
+              <form id="form-kick" onsubmit="return webKick(event)">
+                <div class="form-group"><label>User-ID</label><input type="text" id="mod-kick-user" placeholder="Discord User-ID" required /></div>
+                <div class="form-group"><label>Grund (optional)</label><input type="text" id="mod-kick-grund" placeholder="Grund..." /></div>
+                <button type="submit" class="btn btn-danger btn-sm btn-full">Kicken</button>
+              </form>
+              <form id="form-ban" onsubmit="return webBan(event)">
+                <div class="form-group"><label>User-ID</label><input type="text" id="mod-ban-user" placeholder="Discord User-ID" required /></div>
+                <div class="form-group"><label>Grund (optional)</label><input type="text" id="mod-ban-grund" placeholder="Grund..." /></div>
+                <div class="form-group"><label>Tage (0-7)</label><input type="number" id="mod-ban-tage" value="0" min="0" max="7" /></div>
+                <button type="submit" class="btn btn-danger btn-sm btn-full">Bannen</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
         <div class="spieler-grid" id="spieler-grid"><div class="loading-text">Laden</div></div>
         <div class="pagination" id="spieler-pagination"></div>
         <div class="modal hidden" id="spieler-modal">
@@ -331,6 +357,9 @@
                 <div class="form-group"><label>Polizei</label><select name="polizei_ausbildung_channel_id" id="sel-pol-aus" class="channel-select"><option value="">Nicht gesetzt</option></select></div>
                 <div class="form-group"><label>Feuerwehr</label><select name="feuerwehr_ausbildung_channel_id" id="sel-fw-aus" class="channel-select"><option value="">Nicht gesetzt</option></select></div>
                 <div class="form-group"><label>Rettungsdienst</label><select name="rettungsdienst_ausbildung_channel_id" id="sel-rd-aus" class="channel-select"><option value="">Nicht gesetzt</option></select></div>
+                <div class="form-group"><label>Support</label><select name="support_ausbildung_channel_id" id="sel-support-aus" class="channel-select"><option value="">Nicht gesetzt</option></select></div>
+                <div class="form-group"><label>ADAC</label><select name="adac_ausbildung_channel_id" id="sel-adac-aus" class="channel-select"><option value="">Nicht gesetzt</option></select></div>
+                <div class="form-group"><label>Administration</label><select name="admin_ausbildung_channel_id" id="sel-admin-aus" class="channel-select"><option value="">Nicht gesetzt</option></select></div>
               </div>
             </div>
             <div class="card">
