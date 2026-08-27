@@ -14,12 +14,8 @@ import { config } from '../config/config';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const googleTTS = require('google-tts-api');
 
-// Support-Rollen-IDs
-const SUPPORT_ROLES = [
-  '1540517351370526773', // Support-Leitung
-  '1542280431808806993', // Supporter
-  '1542279297488658473', // Support-Azubi
-];
+// Support-Rollen-Keys (werden aus role_config gelesen statt hardcoded)
+const SUPPORT_ROLE_KEYS = ['supportLeitung', 'supporter', 'supportAnwaerter'];
 
 // Cooldown pro Guild (damit der Bot nicht bei jedem Join spamt)
 const cooldowns = new Map<string, number>();
@@ -112,13 +108,21 @@ export class SupportService {
     const supporters: GuildMember[] = [];
 
     try {
+      // Support-Rollen-IDs aus der Datenbank laden
+      const db = getDatabase();
+      const roleRows = db.prepare('SELECT role_id FROM role_config WHERE guild_id = ? AND role_key IN (?, ?, ?)')
+        .all(guild.id, ...SUPPORT_ROLE_KEYS) as Array<{ role_id: string }>;
+      const supportRoleIds = roleRows.map(r => r.role_id);
+
+      if (supportRoleIds.length === 0) return supporters;
+
       // Alle Mitglieder mit Presence laden
       const members = await guild.members.fetch({ withPresences: true });
 
       members.forEach(m => {
         if (m.user.bot) return;
         // Prüfen ob mindestens EINE der Support-Rollen vorhanden ist
-        const hasRole = SUPPORT_ROLES.some(roleId => m.roles.cache.has(roleId));
+        const hasRole = supportRoleIds.some(roleId => m.roles.cache.has(roleId));
         if (!hasRole) return;
         // Nur explizit online/idle/dnd zählt als erreichbar
         const status = m.presence?.status;

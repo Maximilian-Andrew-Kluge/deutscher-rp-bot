@@ -125,11 +125,13 @@ async function loadDashboard() {
 // ROLLEN
 // ══════════════════════════════════════════════════════════════════
 const KATEGORIEN_META = {
-  justiz:        { titel: 'Justiz', keys: ['justizLeitung','oberRichter','richter','staatsanwalt','gerichtsschreiber','anwalt','justizAnwaerter'] },
+  admin:         { titel: 'Administration', keys: ['owner','coOwner','administrator','administratorAnwaerter','moderator','developer'] },
+  support:       { titel: 'Support', keys: ['supportLeitung','supporter','supportAnwaerter'] },
+  justiz:        { titel: 'Justiz', keys: ['justizLeitung','richter','staatsanwalt','anwalt','justizAnwaerter'] },
   polizei:       { titel: 'Polizei', keys: ['polizeiLeitung','polizei','polizeiAnwaerter'] },
   feuerwehr:     { titel: 'Feuerwehr', keys: ['feuerwehrLeitung','feuerwehr','feuerwehrAnwaerter'] },
   rettungsdienst:{ titel: 'Rettungsdienst', keys: ['rettungsdienstLeitung','rettungsdienst','rettungsdienstAnwaerter'] },
-  admin:         { titel: 'Administration', keys: ['owner','coOwner','administrator','moderator'] },
+  sonstige:      { titel: 'Sonstige', keys: ['fraktionsleitung','adacLeitung'] },
 };
 
 async function loadRollen() {

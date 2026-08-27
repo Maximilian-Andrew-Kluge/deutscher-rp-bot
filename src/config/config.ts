@@ -31,10 +31,13 @@ export const config = {
     owner: 'OWNER',
     coOwner: 'CO-OWNER',
     administrator: 'ADMINISTRATOR',
+    administratorAnwaerter: 'ADMINISTRATOR-ANWÄRTER',
     moderator: 'MODERATOR',
     developer: 'DEVELOPER',
+    // Support
+    supportLeitung: 'SUPPORT-LEITUNG',
     supporter: 'SUPPORTER',
-    azubi: 'AZUBI',
+    supportAnwaerter: 'SUPPORT-AZUBI',
     // Fraktion
     fraktionsleitung: 'FRAKTIONSLEITUNG',
     // Justiz
@@ -55,6 +58,8 @@ export const config = {
     rettungsdienstLeitung: 'RETTUNGSDIENST-LEITUNG',
     rettungsdienst: 'RETTUNGSDIENST',
     rettungsdienstAnwaerter: 'RETTUNGSDIENSTANWÄRTER',
+    // ADAC
+    adacLeitung: 'ADAC-LEITUNG',
   }
 };
 

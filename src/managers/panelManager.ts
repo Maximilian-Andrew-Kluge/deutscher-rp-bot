@@ -456,6 +456,9 @@ export class PanelManager {
       staatsanwalt: 'Staatsanwalt', anwalt: 'Anwalt',
       justizAnwaerter: 'Justizanwärter', polizeiLeitung: 'Polizei-Leitung',
       polizei: 'Polizei', polizeiAnwaerter: 'Polizeianwärter',
+      supportLeitung: 'Support-Leitung', supporter: 'Supporter',
+      supportAnwaerter: 'Support-Azubi', administratorAnwaerter: 'Admin-Anwärter',
+      adacLeitung: 'ADAC-Leitung',
     };
 
     const justizKeys   = ['justizLeitung', 'richter', 'staatsanwalt', 'anwalt', 'justizAnwaerter'];

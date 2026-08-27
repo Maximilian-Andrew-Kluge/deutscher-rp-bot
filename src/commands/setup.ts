@@ -42,10 +42,12 @@ export const data = new SlashCommandBuilder()
         { name: '👑 Owner',                    value: 'owner' },
         { name: '🔱 Co-Owner',                 value: 'coOwner' },
         { name: '🛡️ Administrator',            value: 'administrator' },
+        { name: '🛡️ Administrator-Anwärter',   value: 'administratorAnwaerter' },
         { name: '🔨 Moderator',                value: 'moderator' },
         { name: '💻 Developer',                value: 'developer' },
+        { name: '🎧 Support-Leitung',          value: 'supportLeitung' },
         { name: '🎧 Supporter',                value: 'supporter' },
-        { name: '📚 Azubi',                    value: 'azubi' },
+        { name: '🎧 Support-Azubi',            value: 'supportAnwaerter' },
         { name: '🏛️ Fraktionsleitung',         value: 'fraktionsleitung' },
         { name: '⚖️ Justiz-Leitung',           value: 'justizLeitung' },
         { name: '⚖️ Richter',                  value: 'richter' },
@@ -61,6 +63,7 @@ export const data = new SlashCommandBuilder()
         { name: '🚑 Rettungsdienst-Leitung',   value: 'rettungsdienstLeitung' },
         { name: '🚑 Rettungsdienst',           value: 'rettungsdienst' },
         { name: '🚑 Rettungsdienstanwärter',   value: 'rettungsdienstAnwaerter' },
+        { name: '🚗 ADAC-Leitung',             value: 'adacLeitung' },
       ))
     .addRoleOption(o => o.setName('rolle').setDescription('Die Discord-Rolle').setRequired(true))
   )
