@@ -731,6 +731,8 @@ export class PanelManager {
       await this.handleEmbedEditModal(interaction);
     } else if (id.startsWith('modal_embed_ctx_')) {
       await this.handleEmbedContextEditModal(interaction);
+    } else if (id.startsWith('modal_admin_panel_')) {
+      await this.handleAdminPanelModal(interaction);
     }
   }
 
@@ -1933,12 +1935,12 @@ export class PanelManager {
     return { channel, ownerId: tempRow.owner_id };
   }
 
-  // ── Admin-Panel Button-Handler (öffnet die gleichen Modals wie /admin menu) ──
+  // ── Admin-Panel Button-Handler (öffnet User-Select statt ID-Eingabe) ──
   private async handleAdminPanelButton(interaction: ButtonInteraction, member: GuildMember): Promise<void> {
     const action = interaction.customId.replace('admin_panel_', '');
     const isAdmin = hasAdminPermission(member);
 
-    // Server-Info braucht kein Modal
+    // Server-Info braucht keinen User
     if (action === 'server_info') {
       const guild = interaction.guild!;
       const bots = guild.members.cache.filter(m => m.user.bot).size;
@@ -1962,42 +1964,209 @@ export class PanelManager {
       return;
     }
 
+    // Chat leeren braucht keinen User → direkt Modal
+    if (action === 'chat') {
+      const modal = new ModalBuilder().setCustomId('modal_admin_chat').setTitle('🧹 Chat leeren');
+      modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder().setCustomId('menge').setLabel('Anzahl Nachrichten (1–100)').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('10')
+      ));
+      await interaction.showModal(modal);
+      return;
+    }
+
+    // Warn entfernen braucht eine Warn-ID, keinen User → direkt Modal
+    if (action === 'warn_entf') {
+      if (!isAdmin) { await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Admins.')], ephemeral: true }); return; }
+      const modal = new ModalBuilder().setCustomId('modal_admin_warn_entf').setTitle('🗑️ Verwarnung entfernen');
+      modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder().setCustomId('warn_id').setLabel('Warn-ID').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('z.B. 42')
+      ));
+      await interaction.showModal(modal);
+      return;
+    }
+
     // Admin-only Aktionen prüfen
-    if (['ban', 'unban', 'warn_entf'].includes(action) && !isAdmin) {
+    if (['ban', 'unban'].includes(action) && !isAdmin) {
       await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Diese Aktion erfordert Admin-Rechte.')], ephemeral: true });
       return;
     }
 
-    // Modal-Map: customId → Modal-Parameter
-    const modalMap: Record<string, { customId: string; title: string; fields: { id: string; label: string; placeholder?: string; style?: 1|2; required?: boolean }[] }> = {
-      spieler:   { customId: 'modal_admin_spieler', title: '👤 Spieler-Info', fields: [{ id: 'user_id', label: 'Discord-ID oder @Erwähnung', placeholder: '123456789012345678', required: true }] },
-      warn:      { customId: 'modal_admin_warn', title: '⚠️ Spieler verwarnen', fields: [{ id: 'user_id', label: 'Discord-ID', placeholder: '123456789012345678', required: true }, { id: 'grund', label: 'Begründung', placeholder: 'Grund der Verwarnung...', style: 2, required: true }] },
-      warnungen: { customId: 'modal_admin_warnungen', title: '📋 Verwarnungen anzeigen', fields: [{ id: 'user_id', label: 'Discord-ID', placeholder: '123456789012345678', required: true }] },
-      kick:      { customId: 'modal_admin_kick', title: '🦶 Spieler kicken', fields: [{ id: 'user_id', label: 'Discord-ID', placeholder: '123456789012345678', required: true }, { id: 'grund', label: 'Begründung (optional)', placeholder: 'Kein Grund angegeben', required: false }] },
-      ban:       { customId: 'modal_admin_ban', title: '🔨 Spieler bannen', fields: [{ id: 'user_id', label: 'Discord-ID', placeholder: '123456789012345678', required: true }, { id: 'grund', label: 'Begründung (optional)', placeholder: 'Kein Grund angegeben', required: false }, { id: 'tage', label: 'Nachrichten löschen (0-7 Tage)', placeholder: '0', required: false }] },
-      unban:     { customId: 'modal_admin_unban', title: '✅ Spieler entbannen', fields: [{ id: 'user_id', label: 'Discord User-ID', placeholder: '123456789012345678', required: true }] },
-      warn_entf: { customId: 'modal_admin_warn_entf', title: '🗑️ Verwarnung entfernen', fields: [{ id: 'warn_id', label: 'Warn-ID', placeholder: 'z.B. 42', required: true }] },
-      chat:      { customId: 'modal_admin_chat', title: '🧹 Chat leeren', fields: [{ id: 'menge', label: 'Anzahl Nachrichten (1–100)', placeholder: '10', required: true }] },
+    // Alle anderen Aktionen: User-Select-Menü anzeigen
+    const labels: Record<string, string> = {
+      spieler: '👤 Wähle einen Spieler für Info',
+      warn: '⚠️ Wähle den Spieler zum Verwarnen',
+      warnungen: '📋 Wähle den Spieler (Warns anzeigen)',
+      kick: '🦶 Wähle den Spieler zum Kicken',
+      ban: '🔨 Wähle den Spieler zum Bannen',
+      unban: '✅ Wähle den Spieler zum Entbannen',
     };
 
-    const def = modalMap[action];
+    const userSelect = new UserSelectMenuBuilder()
+      .setCustomId(`admin_user_select_${action}`)
+      .setPlaceholder(labels[action] || 'Spieler auswählen...')
+      .setMinValues(1)
+      .setMaxValues(1);
+
+    await interaction.reply({
+      content: labels[action] || 'Wähle einen Spieler:',
+      components: [new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(userSelect)],
+      ephemeral: true,
+    });
+  }
+
+  // ── Admin-Panel: User-Select-Ergebnis verarbeiten ──
+  private async handleAdminUserSelected(interaction: UserSelectMenuInteraction, member: GuildMember): Promise<void> {
+    const action = interaction.customId.replace('admin_user_select_', '');
+    const targetUser = interaction.users.first();
+    if (!targetUser) {
+      await interaction.reply({ embeds: [createErrorEmbed('Fehler', 'Kein Benutzer ausgewählt.')], ephemeral: true });
+      return;
+    }
+
+    const guild = interaction.guild!;
+    const db = getDatabase();
+    const isAdmin = hasAdminPermission(member);
+
+    // ── Spieler-Info: direkt anzeigen ──
+    if (action === 'spieler') {
+      let targetMember: GuildMember | null = null;
+      try { targetMember = await guild.members.fetch(targetUser.id); } catch { /* */ }
+
+      const warnCount = (db.prepare('SELECT COUNT(*) as c FROM warns WHERE guild_id = ? AND benutzer_id = ?').get(guild.id, targetUser.id) as { c: number }).c;
+
+      const embed = new EmbedBuilder()
+        .setColor(config.colors.info as ColorResolvable)
+        .setTitle(`👤 ${targetUser.tag}`)
+        .setThumbnail(targetUser.displayAvatarURL())
+        .addFields(
+          { name: 'ID', value: targetUser.id, inline: true },
+          { name: 'Auf Server', value: targetMember ? '✅ Ja' : '❌ Nein', inline: true },
+          { name: 'Account erstellt', value: `<t:${Math.floor(targetUser.createdTimestamp / 1000)}:D>`, inline: true },
+          { name: '⚠️ Verwarnungen', value: `${warnCount}`, inline: true },
+        );
+      if (targetMember) {
+        embed.addFields(
+          { name: 'Beigetreten', value: targetMember.joinedTimestamp ? `<t:${Math.floor(targetMember.joinedTimestamp / 1000)}:D>` : '—', inline: true },
+          { name: 'Rollen', value: targetMember.roles.cache.filter(r => r.name !== '@everyone').sort((a, b) => b.position - a.position).map(r => r.toString()).slice(0, 8).join(', ') || '—', inline: false },
+        );
+      }
+      await interaction.update({ content: null, embeds: [embed], components: [] });
+      return;
+    }
+
+    // ── Warnungen anzeigen: direkt ──
+    if (action === 'warnungen') {
+      const warns = db.prepare('SELECT * FROM warns WHERE guild_id = ? AND benutzer_id = ? ORDER BY erstellt_am DESC').all(guild.id, targetUser.id) as unknown as Array<{ id: number; grund: string; moderator_id: string; erstellt_am: string }>;
+      if (warns.length === 0) {
+        await interaction.update({ content: null, embeds: [new EmbedBuilder().setColor(config.colors.success as ColorResolvable).setTitle('✅ Keine Verwarnungen').setDescription(`${targetUser} hat keine Verwarnungen.`)], components: [] });
+      } else {
+        await interaction.update({ content: null, embeds: [new EmbedBuilder()
+          .setColor(config.colors.warning as ColorResolvable)
+          .setTitle(`⚠️ Verwarnungen — ${targetUser.tag}`)
+          .setDescription(`**${warns.length}** Verwarnung(en)`)
+          .addFields(warns.slice(0, 10).map(w => ({ name: `#${w.id} — <t:${Math.floor(new Date(w.erstellt_am).getTime() / 1000)}:D>`, value: `${w.grund}\nMod: <@${w.moderator_id}>`, inline: false })))
+        ], components: [] });
+      }
+      return;
+    }
+
+    // ── Entbannen: direkt ausführen ──
+    if (action === 'unban') {
+      if (!isAdmin) { await interaction.update({ content: null, embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Admins.')], components: [] }); return; }
+      try {
+        await guild.bans.remove(targetUser.id, `Entbannt von ${member.user.tag}`);
+        await interaction.update({ content: null, embeds: [createSuccessEmbed('✅ Entbannt', `**${targetUser.tag}** wurde entbannt.`)], components: [] });
+      } catch {
+        await interaction.update({ content: null, embeds: [createErrorEmbed('Fehler', `${targetUser.tag} ist nicht gebannt.`)], components: [] });
+      }
+      return;
+    }
+
+    // ── Warn, Kick, Ban: Modal öffnen (User-ID im customId kodiert) ──
+    const modalDefs: Record<string, { customId: string; title: string; fields: { id: string; label: string; placeholder?: string; style?: 'p' }[] }> = {
+      warn: { customId: `modal_admin_panel_warn_${targetUser.id}`, title: `⚠️ ${targetUser.tag} verwarnen`, fields: [{ id: 'grund', label: 'Begründung', placeholder: 'Grund der Verwarnung...', style: 'p' }] },
+      kick: { customId: `modal_admin_panel_kick_${targetUser.id}`, title: `🦶 ${targetUser.tag} kicken`, fields: [{ id: 'grund', label: 'Begründung (optional)', placeholder: 'Kein Grund angegeben' }] },
+      ban:  { customId: `modal_admin_panel_ban_${targetUser.id}`, title: `🔨 ${targetUser.tag} bannen`, fields: [{ id: 'grund', label: 'Begründung (optional)', placeholder: 'Kein Grund angegeben' }, { id: 'tage', label: 'Nachrichten löschen (0-7 Tage)', placeholder: '0' }] },
+    };
+
+    const def = modalDefs[action];
     if (!def) return;
 
     const modal = new ModalBuilder().setCustomId(def.customId).setTitle(def.title);
     def.fields.forEach(f => {
-      modal.addComponents(
-        new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder()
-            .setCustomId(f.id)
-            .setLabel(f.label)
-            .setStyle(f.style === 2 ? TextInputStyle.Paragraph : TextInputStyle.Short)
-            .setRequired(f.required ?? true)
-            .setPlaceholder(f.placeholder ?? '')
-        )
-      );
+      modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder().setCustomId(f.id).setLabel(f.label).setStyle(f.style === 'p' ? TextInputStyle.Paragraph : TextInputStyle.Short).setRequired(f.id === 'grund' && action === 'warn').setPlaceholder(f.placeholder || '')
+      ));
     });
-
     await interaction.showModal(modal);
+  }
+
+  // ── Admin-Panel: Modal-Ergebnis nach User-Select (warn/kick/ban) ──
+  private async handleAdminPanelModal(interaction: ModalSubmitInteraction): Promise<void> {
+    const guild = interaction.guild!;
+    const member = interaction.member as GuildMember;
+    const id = interaction.customId; // modal_admin_panel_warn_<userId> etc.
+
+    // Action und User-ID extrahieren
+    const parts = id.replace('modal_admin_panel_', '').split('_');
+    const action = parts[0]; // warn, kick, ban
+    const userId = parts.slice(1).join('_'); // User-ID (kann _ enthalten, aber IDs sind numerisch)
+
+    if (!userId) { await interaction.reply({ embeds: [createErrorEmbed('Fehler', 'User-ID fehlt.')], ephemeral: true }); return; }
+
+    let user: import('discord.js').User | null = null;
+    try { user = await interaction.client.users.fetch(userId); } catch { /* */ }
+    if (!user) { await interaction.reply({ embeds: [createErrorEmbed('Nicht gefunden', `ID \`${userId}\` nicht gefunden.`)], ephemeral: true }); return; }
+
+    const db = getDatabase();
+
+    // ── WARN ──
+    if (action === 'warn') {
+      const grund = interaction.fields.getTextInputValue('grund').trim();
+      if (!grund) { await interaction.reply({ embeds: [createErrorEmbed('Fehler', 'Begründung ist erforderlich.')], ephemeral: true }); return; }
+      if (user.id === interaction.user.id) { await interaction.reply({ embeds: [createErrorEmbed('Fehler', 'Du kannst dich nicht selbst verwarnen.')], ephemeral: true }); return; }
+
+      const result = db.prepare('INSERT INTO warns (guild_id, benutzer_id, benutzer_name, moderator_id, moderator_name, grund) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(guild.id, user.id, user.tag, interaction.user.id, interaction.user.tag, grund);
+      const warnId = result.lastInsertRowid;
+      const total = (db.prepare('SELECT COUNT(*) as c FROM warns WHERE guild_id = ? AND benutzer_id = ?').get(guild.id, user.id) as { c: number }).c;
+
+      try { await user.send({ embeds: [new EmbedBuilder().setColor(config.colors.warning as ColorResolvable).setTitle('⚠️ Du wurdest verwarnt').setDescription(`Auf **${guild.name}**`).addFields({ name: 'Grund', value: grund }, { name: 'Gesamt', value: `${total}` }).setTimestamp()] }); } catch { /* DMs zu */ }
+
+      db.prepare('INSERT INTO mod_logs (guild_id, moderator_id, moderator_name, aktion, ziel_id, ziel_name, grund) VALUES (?, ?, ?, ?, ?, ?, ?)').run(guild.id, interaction.user.id, interaction.user.tag, 'warn', user.id, user.tag, grund);
+      await interaction.reply({ embeds: [createSuccessEmbed('⚠️ Verwarnung erteilt', `${user} wurde verwarnt.\n**Grund:** ${grund}\n**Warn-ID:** #${warnId} | **Gesamt:** ${total}`)], ephemeral: true });
+      return;
+    }
+
+    // ── KICK ──
+    if (action === 'kick') {
+      const grund = (interaction.fields.getTextInputValue('grund') || 'Kein Grund angegeben').trim();
+      let target: GuildMember | null = null;
+      try { target = await guild.members.fetch(userId); } catch { /* */ }
+      if (!target) { await interaction.reply({ embeds: [createErrorEmbed('Nicht gefunden', 'Spieler ist nicht auf dem Server.')], ephemeral: true }); return; }
+      if (!target.kickable) { await interaction.reply({ embeds: [createErrorEmbed('Fehler', 'Kann nicht gekickt werden (höhere Rolle).')], ephemeral: true }); return; }
+
+      try { await user.send({ embeds: [new EmbedBuilder().setColor(config.colors.error as ColorResolvable).setTitle('🦶 Du wurdest gekickt').setDescription(`Von **${guild.name}**`).addFields({ name: 'Grund', value: grund }).setTimestamp()] }); } catch { /* */ }
+      await target.kick(`${interaction.user.tag}: ${grund}`);
+
+      db.prepare('INSERT INTO mod_logs (guild_id, moderator_id, moderator_name, aktion, ziel_id, ziel_name, grund) VALUES (?, ?, ?, ?, ?, ?, ?)').run(guild.id, interaction.user.id, interaction.user.tag, 'kick', user.id, user.tag, grund);
+      await interaction.reply({ embeds: [createSuccessEmbed('🦶 Gekickt', `**${user.tag}** wurde gekickt.\n**Grund:** ${grund}`)], ephemeral: true });
+      return;
+    }
+
+    // ── BAN ──
+    if (action === 'ban') {
+      if (!hasAdminPermission(member)) { await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Admins.')], ephemeral: true }); return; }
+      const grund = (interaction.fields.getTextInputValue('grund') || 'Kein Grund angegeben').trim();
+      const tage = Math.min(7, Math.max(0, parseInt(interaction.fields.getTextInputValue('tage') || '0') || 0));
+
+      try { await user.send({ embeds: [new EmbedBuilder().setColor(config.colors.error as ColorResolvable).setTitle('🔨 Du wurdest gebannt').setDescription(`Von **${guild.name}**`).addFields({ name: 'Grund', value: grund }).setTimestamp()] }); } catch { /* */ }
+      await guild.bans.create(userId, { reason: `${interaction.user.tag}: ${grund}`, deleteMessageSeconds: tage * 86400 });
+
+      db.prepare('INSERT INTO mod_logs (guild_id, moderator_id, moderator_name, aktion, ziel_id, ziel_name, grund) VALUES (?, ?, ?, ?, ?, ?, ?)').run(guild.id, interaction.user.id, interaction.user.tag, 'ban', user.id, user.tag, grund);
+      await interaction.reply({ embeds: [createSuccessEmbed('🔨 Gebannt', `**${user.tag}** wurde gebannt.\n**Grund:** ${grund}`)], ephemeral: true });
+      return;
+    }
   }
 
   private async handleTempVoiceButton(interaction: ButtonInteraction, member: GuildMember): Promise<void> {
@@ -2099,6 +2268,17 @@ export class PanelManager {
 
   private async handleUserSelect(interaction: UserSelectMenuInteraction): Promise<void> {
     const member = interaction.member as GuildMember;
+
+    // ── Admin-Panel: User wurde ausgewählt ──
+    if (interaction.customId.startsWith('admin_user_select_')) {
+      if (!hasAdminPermission(member) && !hasModPermission(member)) {
+        await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', '')], ephemeral: true });
+        return;
+      }
+      await this.handleAdminUserSelected(interaction, member);
+      return;
+    }
+
     if (!interaction.customId.startsWith('userselect_tempvoice_')) return;
 
     const check = await this.tempVoiceCheck(interaction, member);
