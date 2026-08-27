@@ -174,6 +174,89 @@ export function runMigrations(): void {
     )
   `);
 
+  // Abwesenheiten
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS abwesenheiten (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      fraktion TEXT,
+      von TEXT NOT NULL,
+      bis TEXT NOT NULL,
+      grund TEXT NOT NULL,
+      aktiv INTEGER DEFAULT 1,
+      erstellt_am TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Ausbildungen
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ausbildungen (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      fraktion TEXT NOT NULL,
+      ausbildung TEXT NOT NULL,
+      status TEXT DEFAULT 'laufend',
+      ausbilder_id TEXT,
+      ausbilder_name TEXT,
+      gestartet_am TEXT DEFAULT (datetime('now')),
+      abgeschlossen_am TEXT
+    )
+  `);
+
+  // Tickets
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      thread_id TEXT,
+      kategorie TEXT DEFAULT 'support',
+      status TEXT DEFAULT 'offen',
+      erstellt_am TEXT DEFAULT (datetime('now')),
+      geschlossen_am TEXT,
+      geschlossen_von TEXT
+    )
+  `);
+
+  // Dienstplan
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS dienstplan (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      fraktion TEXT NOT NULL,
+      tag TEXT NOT NULL,
+      von_uhrzeit TEXT NOT NULL,
+      bis_uhrzeit TEXT NOT NULL,
+      erstellt_am TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Fahndungen
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS fahndungen (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      erstellt_von_id TEXT NOT NULL,
+      erstellt_von_name TEXT NOT NULL,
+      gesuchter TEXT NOT NULL,
+      roblox_name TEXT,
+      grund TEXT NOT NULL,
+      beschreibung TEXT,
+      status TEXT DEFAULT 'gesucht',
+      message_id TEXT,
+      channel_id TEXT,
+      erstellt_am TEXT DEFAULT (datetime('now')),
+      aktualisiert_am TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
   // Temporäre Voice-Kanäle — unverändert
   db.exec(`
     CREATE TABLE IF NOT EXISTS temp_voice_channels (

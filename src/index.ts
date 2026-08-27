@@ -9,6 +9,7 @@ import { TikTokService } from './services/tiktokService';
 import { initDatabase, closeDatabase, getDatabase } from './database/database';
 import { SupportService } from './services/supportService';
 import { CounterService } from './services/counterService';
+import { AuditLogService } from './services/auditLogService';
 import { config } from './config/config';
 import { startWebServer } from './web/server';
 
@@ -73,6 +74,10 @@ async function main(): Promise<void> {
     // Counter-Service starten (Statistik-Kanäle alle 5 Min. aktualisieren)
     const counterService = new CounterService(readyClient);
     counterService.start();
+
+    // Audit-Log-Service starten (automatisches Logging)
+    const auditLogService = new AuditLogService(readyClient);
+    auditLogService.registerEvents();
 
     console.log('✅ Bot ist vollständig bereit!\n');
   });

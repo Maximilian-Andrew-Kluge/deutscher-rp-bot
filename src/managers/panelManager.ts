@@ -67,6 +67,18 @@ export class PanelManager {
       return;
     }
 
+    // ── Ticket erstellen ──
+    if (id === 'ticket_erstellen') {
+      await this.handleTicketErstellen(interaction, member);
+      return;
+    }
+
+    // ── Ticket schliessen (Button im Thread) ──
+    if (id === 'ticket_schliessen') {
+      await this.handleTicketSchliessen(interaction, member);
+      return;
+    }
+
     // ── Neues Verfahren Panel-Button ──
     // ── Verfahren mehrstufig — Weiter-Buttons ──────────────────────────────
     if (id === 'verfahren_weiter_2') {
@@ -1933,6 +1945,96 @@ export class PanelManager {
     }
 
     return { channel, ownerId: tempRow.owner_id };
+  }
+
+  // ── Ticket erstellen ─────────────────────────────────────────────────────────
+  private async handleTicketErstellen(interaction: ButtonInteraction, member: GuildMember): Promise<void> {
+    const db = getDatabase();
+    const guildId = interaction.guildId!;
+
+    // Prüfen ob bereits ein offenes Ticket existiert
+    const existing = db.prepare('SELECT id FROM tickets WHERE guild_id = ? AND user_id = ? AND status = ?')
+      .get(guildId, member.id, 'offen') as { id: number } | undefined;
+    if (existing) {
+      await interaction.reply({ embeds: [createErrorEmbed('Offenes Ticket', 'Du hast bereits ein offenes Ticket. Bitte warte auf eine Antwort oder schliesse es.')], ephemeral: true });
+      return;
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const channel = interaction.channel as TextChannel;
+
+      // Thread erstellen
+      const thread = await channel.threads.create({
+        name: `🎫 Ticket — ${member.user.username}`,
+        autoArchiveDuration: 4320 as 60, // 3 Tage (workaround typing)
+        type: 12 as 11, // PrivateThread
+        reason: `Ticket von ${member.user.tag}`,
+      });
+
+      // Ticket-Ersteller hinzufügen
+      await thread.members.add(member.id);
+
+      // In DB speichern
+      db.prepare('INSERT INTO tickets (guild_id, user_id, username, thread_id, kategorie) VALUES (?, ?, ?, ?, ?)')
+        .run(guildId, member.id, member.user.tag, thread.id, 'support');
+
+      // Willkommens-Nachricht im Thread
+      const embed = new EmbedBuilder()
+        .setColor(config.colors.info as ColorResolvable)
+        .setTitle('🎫 Ticket erstellt')
+        .setDescription(
+          `Hallo ${member}!\n\n` +
+          'Dein Ticket wurde erstellt. Ein Staff-Mitglied wird sich bald melden.\n\n' +
+          '**Bitte beschreibe dein Anliegen so genau wie möglich.**\n' +
+          'Was ist passiert? Was brauchst du?'
+        )
+        .setFooter({ text: `Ticket-ID: ${thread.id}` })
+        .setTimestamp();
+
+      const closeBtn = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId('ticket_schliessen').setLabel('Ticket schliessen').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+      );
+
+      await thread.send({ embeds: [embed], components: [closeBtn] });
+
+      await interaction.editReply({ embeds: [createSuccessEmbed('🎫 Ticket erstellt', `Dein Ticket wurde erstellt: ${thread}\nEin Staff-Mitglied wird sich melden.`)] });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      await interaction.editReply({ embeds: [createErrorEmbed('Fehler', `Ticket konnte nicht erstellt werden: ${msg}`)] });
+    }
+  }
+
+  // ── Ticket schliessen (Button im Thread) ───────────────────────────────────
+  private async handleTicketSchliessen(interaction: ButtonInteraction, member: GuildMember): Promise<void> {
+    if (!hasAdminPermission(member) && !hasModPermission(member)) {
+      await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Staff kann Tickets schliessen.')], ephemeral: true });
+      return;
+    }
+
+    const db = getDatabase();
+    const ticket = db.prepare('SELECT id FROM tickets WHERE guild_id = ? AND thread_id = ? AND status = ?')
+      .get(interaction.guildId!, interaction.channelId, 'offen') as { id: number } | undefined;
+
+    if (!ticket) {
+      await interaction.reply({ embeds: [createErrorEmbed('Kein Ticket', 'Dieses Ticket ist bereits geschlossen.')], ephemeral: true });
+      return;
+    }
+
+    db.prepare("UPDATE tickets SET status = 'geschlossen', geschlossen_am = datetime('now'), geschlossen_von = ? WHERE id = ?")
+      .run(member.user.tag, ticket.id);
+
+    await interaction.reply({ embeds: [createSuccessEmbed('🔒 Ticket geschlossen', `Geschlossen von ${member}. Thread wird archiviert.`)] });
+
+    setTimeout(async () => {
+      try {
+        const thread = interaction.channel;
+        if (thread && 'setArchived' in thread) {
+          await (thread as { setArchived: (a: boolean) => Promise<unknown> }).setArchived(true);
+        }
+      } catch { /* ignore */ }
+    }, 5000);
   }
 
   // ── Admin-Panel Button-Handler (öffnet User-Select statt ID-Eingabe) ──
