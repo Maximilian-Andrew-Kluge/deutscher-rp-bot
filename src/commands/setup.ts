@@ -3,6 +3,7 @@ import {
   ColorResolvable, ChannelType, GuildMember
 } from 'discord.js';
 import { getDatabase } from '../database/database';
+import { CounterService } from '../services/counterService';
 import { createErrorEmbed, createSuccessEmbed } from '../utils/embeds';
 import { hasAdminPermission } from '../utils/permissions';
 import { config } from '../config/config';
@@ -69,6 +70,10 @@ export const data = new SlashCommandBuilder()
     .setDescription('Konfiguriert den Support-Warteraum (Voice + Benachrichtigungen)')
     .addChannelOption(o => o.setName('warteraum').setDescription('Voice-Kanal als Support-Warteraum').setRequired(true).addChannelTypes(ChannelType.GuildVoice))
     .addChannelOption(o => o.setName('benachrichtigung').setDescription('Textkanal für Support-Benachrichtigungen').setRequired(true).addChannelTypes(ChannelType.GuildText))
+  )
+  .addSubcommand(sub => sub
+    .setName('counter')
+    .setDescription('Erstellt Statistik-Counter als Voice-Kanäle (Mitglieder, Online, Boosts, Uhrzeit)')
   );
 
 export async function execute(interaction: CommandInteraction): Promise<void> {
@@ -192,6 +197,32 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
       )],
       ephemeral: true,
     });
+
+  } else if (sub === 'counter') {
+    if (!hasAdminPermission(member)) {
+      await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Admins können Counter erstellen.')], ephemeral: true });
+      return;
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const counterService = new CounterService(interaction.client);
+      await counterService.setup(interaction.guildId!);
+      await interaction.editReply({
+        embeds: [createSuccessEmbed('📊 Counter erstellt',
+          'Die Statistik-Counter wurden erstellt:\n\n' +
+          '**👥 Mitglieder** — Gesamtzahl\n' +
+          '**🟢 Online** — Aktuell online\n' +
+          '**💎 Boosts** — Server-Boosts\n' +
+          '**🕐 Uhrzeit** — Aktuelle Uhrzeit (Berlin)\n\n' +
+          'Die Counter werden alle 5 Minuten automatisch aktualisiert.'
+        )],
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      await interaction.editReply({ embeds: [createErrorEmbed('Fehler', msg)] });
+    }
 
   } else if (sub === 'info') {
     type SettingsRow = Record<string, string | null>;

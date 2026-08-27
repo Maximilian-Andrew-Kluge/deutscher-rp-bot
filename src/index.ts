@@ -8,6 +8,7 @@ import { WelcomeService } from './services/welcomeService';
 import { TikTokService } from './services/tiktokService';
 import { initDatabase, closeDatabase, getDatabase } from './database/database';
 import { SupportService } from './services/supportService';
+import { CounterService } from './services/counterService';
 import { config } from './config/config';
 import { startWebServer } from './web/server';
 
@@ -68,6 +69,10 @@ async function main(): Promise<void> {
     // TikTok Live-Überwachung starten
     const tiktokService = new TikTokService(readyClient);
     tiktokService.start();
+
+    // Counter-Service starten (Statistik-Kanäle alle 5 Min. aktualisieren)
+    const counterService = new CounterService(readyClient);
+    counterService.start();
 
     console.log('✅ Bot ist vollständig bereit!\n');
   });

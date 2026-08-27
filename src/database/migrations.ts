@@ -27,7 +27,8 @@ export function runMigrations(): void {
   // Fehlende Spalten in server_settings nachträglich hinzufügen (Migration)
   const settingsCols = ['polizei_ausbildung_channel_id', 'feuerwehr_ausbildung_channel_id',
     'rettungsdienst_ausbildung_channel_id', 'justiz_ausbildung_channel_id', 'ankuendigung_channel_id',
-    'willkommen_channel_id', 'live_channel_id', 'support_channel_id', 'support_notify_channel_id'];
+    'willkommen_channel_id', 'live_channel_id', 'support_channel_id', 'support_notify_channel_id',
+    'counter_category_id', 'counter_members_id', 'counter_online_id', 'counter_boosts_id', 'counter_clock_id'];
   for (const col of settingsCols) {
     try {
       db.exec(`ALTER TABLE server_settings ADD COLUMN ${col} TEXT`);
