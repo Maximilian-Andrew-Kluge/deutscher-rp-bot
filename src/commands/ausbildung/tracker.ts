@@ -19,6 +19,9 @@ export const data = new SlashCommandBuilder()
       { name: 'Feuerwehr', value: 'Feuerwehr' },
       { name: 'Rettungsdienst', value: 'Rettungsdienst' },
       { name: 'Justiz', value: 'Justiz' },
+      { name: 'Support', value: 'Support' },
+      { name: 'ADAC', value: 'ADAC' },
+      { name: 'Administration', value: 'Administration' },
     ))
     .addStringOption(o => o.setName('ausbildung').setDescription('Art der Ausbildung (z.B. Grundausbildung, Spezialausbildung)').setRequired(true).setMaxLength(100))
   )

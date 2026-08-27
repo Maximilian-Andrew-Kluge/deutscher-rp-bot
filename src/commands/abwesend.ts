@@ -110,7 +110,9 @@ function detectFraktion(member: GuildMember): string {
   if (roleNames.some(r => r.includes('polizei'))) return 'Polizei';
   if (roleNames.some(r => r.includes('feuerwehr'))) return 'Feuerwehr';
   if (roleNames.some(r => r.includes('rettungsdienst') || r.includes('rettung'))) return 'Rettungsdienst';
-  if (roleNames.some(r => r.includes('admin') || r.includes('moderator') || r.includes('support'))) return 'Staff';
+  if (roleNames.some(r => r.includes('adac'))) return 'ADAC';
+  if (roleNames.some(r => r.includes('support'))) return 'Support';
+  if (roleNames.some(r => r.includes('admin') || r.includes('moderator'))) return 'Administration';
   return 'Zivilist';
 }
 

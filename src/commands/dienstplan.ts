@@ -36,6 +36,9 @@ export const data = new SlashCommandBuilder()
       { name: 'Feuerwehr', value: 'Feuerwehr' },
       { name: 'Rettungsdienst', value: 'Rettungsdienst' },
       { name: 'Justiz', value: 'Justiz' },
+      { name: 'Support', value: 'Support' },
+      { name: 'ADAC', value: 'ADAC' },
+      { name: 'Administration', value: 'Administration' },
     ))
   );
 
@@ -121,6 +124,9 @@ function detectFraktion(member: GuildMember): string {
   if (roleNames.some(r => r.includes('polizei'))) return 'Polizei';
   if (roleNames.some(r => r.includes('feuerwehr'))) return 'Feuerwehr';
   if (roleNames.some(r => r.includes('rettung'))) return 'Rettungsdienst';
+  if (roleNames.some(r => r.includes('adac'))) return 'ADAC';
+  if (roleNames.some(r => r.includes('support'))) return 'Support';
+  if (roleNames.some(r => r.includes('admin') || r.includes('moderator'))) return 'Administration';
   return 'Sonstige';
 }
 
