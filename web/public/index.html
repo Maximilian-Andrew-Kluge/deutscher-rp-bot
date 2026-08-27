@@ -75,6 +75,9 @@
       <a href="#tiktok" class="nav-item" data-page="tiktok">
         <span class="nav-icon">&#x1F4F1;</span> TikTok Live
       </a>
+      <a href="#tickets" class="nav-item" data-page="tickets">
+        <span class="nav-icon">&#x1F3AB;</span> Tickets
+      </a>
 
       <div class="nav-section-label">Justiz</div>
       <a href="#verfahren" class="nav-item" data-page="verfahren">
@@ -82,6 +85,20 @@
       </a>
       <a href="#akten" class="nav-item" data-page="akten">
         <span class="nav-icon">&#x1F4C1;</span> Akten
+      </a>
+      <a href="#fahndungen" class="nav-item" data-page="fahndungen">
+        <span class="nav-icon">&#x1F6A8;</span> Fahndungen
+      </a>
+
+      <div class="nav-section-label">Personal</div>
+      <a href="#dienstplan" class="nav-item" data-page="dienstplan">
+        <span class="nav-icon">&#x1F4CB;</span> Dienstplan
+      </a>
+      <a href="#abwesenheiten" class="nav-item" data-page="abwesenheiten">
+        <span class="nav-icon">&#x1F4C5;</span> Abwesenheiten
+      </a>
+      <a href="#ausbildungen" class="nav-item" data-page="ausbildungen">
+        <span class="nav-icon">&#x1F4DA;</span> Ausbildungen
       </a>
 
       <div class="nav-section-label">Konfiguration</div>
@@ -370,6 +387,66 @@
               </div>
             </form>
           </div>
+        </div>
+      </section>
+
+      <!-- ══════ TICKETS ══════ -->
+      <section id="page-tickets" class="page">
+        <div class="page-header">
+          <h2>Tickets</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadTickets()">Aktualisieren</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table"><thead><tr><th>#</th><th>Benutzer</th><th>Kategorie</th><th>Status</th><th>Erstellt</th><th>Geschlossen</th></tr></thead>
+          <tbody id="tickets-tbody"><tr><td colspan="6" class="loading-text">Laden</td></tr></tbody></table>
+        </div>
+      </section>
+
+      <!-- ══════ FAHNDUNGEN ══════ -->
+      <section id="page-fahndungen" class="page">
+        <div class="page-header">
+          <h2>Fahndungen</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadFahndungen()">Aktualisieren</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table"><thead><tr><th>#</th><th>Gesuchter</th><th>Roblox</th><th>Grund</th><th>Status</th><th>Erstellt von</th><th>Aktion</th></tr></thead>
+          <tbody id="fahndungen-tbody"><tr><td colspan="7" class="loading-text">Laden</td></tr></tbody></table>
+        </div>
+      </section>
+
+      <!-- ══════ DIENSTPLAN ══════ -->
+      <section id="page-dienstplan" class="page">
+        <div class="page-header">
+          <h2>Dienstplan</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadDienstplan()">Aktualisieren</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table"><thead><tr><th>Tag</th><th>Benutzer</th><th>Fraktion</th><th>Von</th><th>Bis</th><th>Aktion</th></tr></thead>
+          <tbody id="dienstplan-tbody"><tr><td colspan="6" class="loading-text">Laden</td></tr></tbody></table>
+        </div>
+      </section>
+
+      <!-- ══════ ABWESENHEITEN ══════ -->
+      <section id="page-abwesenheiten" class="page">
+        <div class="page-header">
+          <h2>Abwesenheiten</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadAbwesenheiten()">Aktualisieren</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table"><thead><tr><th>Benutzer</th><th>Fraktion</th><th>Von</th><th>Bis</th><th>Grund</th><th>Aktion</th></tr></thead>
+          <tbody id="abwesenheiten-tbody"><tr><td colspan="6" class="loading-text">Laden</td></tr></tbody></table>
+        </div>
+      </section>
+
+      <!-- ══════ AUSBILDUNGEN ══════ -->
+      <section id="page-ausbildungen" class="page">
+        <div class="page-header">
+          <h2>Ausbildungen</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadAusbildungen()">Aktualisieren</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table"><thead><tr><th>Azubi</th><th>Fraktion</th><th>Ausbildung</th><th>Ausbilder</th><th>Status</th><th>Gestartet</th><th>Aktion</th></tr></thead>
+          <tbody id="ausbildungen-tbody"><tr><td colspan="7" class="loading-text">Laden</td></tr></tbody></table>
         </div>
       </section>
 

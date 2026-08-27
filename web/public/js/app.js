@@ -50,10 +50,10 @@ function navigate(page) {
   const pageEl = document.getElementById(`page-${page}`);
   if (pageEl) pageEl.classList.add('active');
 
-  const titles = { dashboard:'Dashboard', spieler:'Spieler', warns:'Verwarnungen', modlogs:'Mod-Logs', chat:'Chat leeren', tiktok:'TikTok Live', verfahren:'Verfahren', akten:'Akten', rollen:'Rollen', settings:'Einstellungen', logs:'Admin-Logs', admins:'Admins' };
+  const titles = { dashboard:'Dashboard', spieler:'Spieler', warns:'Verwarnungen', modlogs:'Mod-Logs', chat:'Chat leeren', tiktok:'TikTok Live', tickets:'Tickets', verfahren:'Verfahren', akten:'Akten', fahndungen:'Fahndungen', dienstplan:'Dienstplan', abwesenheiten:'Abwesenheiten', ausbildungen:'Ausbildungen', rollen:'Rollen', settings:'Einstellungen', logs:'Admin-Logs', admins:'Admins' };
   document.getElementById('page-title').textContent = titles[page] || page;
 
-  const loaders = { dashboard:loadDashboard, rollen:loadRollen, settings:loadSettings, verfahren:loadVerfahren, akten:loadAkten, logs:loadLogs, admins:loadAdmins, spieler:loadSpieler, warns:loadWarns, modlogs:loadModLogs, chat:loadChat, tiktok:loadTikTok };
+  const loaders = { dashboard:loadDashboard, rollen:loadRollen, settings:loadSettings, verfahren:loadVerfahren, akten:loadAkten, logs:loadLogs, admins:loadAdmins, spieler:loadSpieler, warns:loadWarns, modlogs:loadModLogs, chat:loadChat, tiktok:loadTikTok, tickets:loadTickets, fahndungen:loadFahndungen, dienstplan:loadDienstplan, abwesenheiten:loadAbwesenheiten, ausbildungen:loadAusbildungen };
   if (loaders[page]) loaders[page]();
 
   document.getElementById('sidebar').classList.remove('open');
@@ -426,6 +426,80 @@ async function deleteTikTok(id, name) {
   try { await api('DELETE',`/api/tiktok/${id}`); toast(`@${name} entfernt`,'success'); loadTikTok(); }
   catch (err) { toast(err.message,'error'); }
 }
+
+// ══════════════════════════════════════════════════════════════════
+// TICKETS
+// ══════════════════════════════════════════════════════════════════
+async function loadTickets() {
+  const tbody = document.getElementById('tickets-tbody'); if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Laden</td></tr>';
+  try {
+    const data = await api('GET','/api/tickets'); if (!data) return;
+    const t = data.tickets || [];
+    tbody.innerHTML = t.length === 0 ? '<tr><td colspan="6" class="loading-text">Keine Tickets</td></tr>' :
+      t.map(r => `<tr><td><strong>#${r.id}</strong></td><td>${escHtml(r.username)}</td><td>${escHtml(r.kategorie)}</td><td><span class="badge badge-${r.status==='offen'?'warning':'success'}">${escHtml(r.status)}</span></td><td>${formatDate(r.erstellt_am)}</td><td>${r.geschlossen_am ? formatDate(r.geschlossen_am) + ' von ' + escHtml(r.geschlossen_von||'') : '—'}</td></tr>`).join('');
+  } catch (err) { tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Fehler</td></tr>'; }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FAHNDUNGEN
+// ══════════════════════════════════════════════════════════════════
+async function loadFahndungen() {
+  const tbody = document.getElementById('fahndungen-tbody'); if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" class="loading-text">Laden</td></tr>';
+  try {
+    const data = await api('GET','/api/fahndungen?filter=alle'); if (!data) return;
+    const f = data.fahndungen || [];
+    tbody.innerHTML = f.length === 0 ? '<tr><td colspan="7" class="loading-text">Keine Fahndungen</td></tr>' :
+      f.map(r => `<tr><td><strong>#${r.id}</strong></td><td>${escHtml(r.gesuchter)}</td><td>${escHtml(r.roblox_name||'—')}</td><td>${escHtml(r.grund)}</td><td><span class="badge badge-${r.status==='gesucht'?'danger':'success'}">${escHtml(r.status)}</span></td><td>${escHtml(r.erstellt_von_name)}</td><td><button class="btn btn-danger btn-sm" onclick="deleteFahndung(${r.id})">Loeschen</button></td></tr>`).join('');
+  } catch (err) { tbody.innerHTML = '<tr><td colspan="7" class="loading-text">Fehler</td></tr>'; }
+}
+async function deleteFahndung(id) { if (!confirm('Fahndung loeschen?')) return; try { await api('DELETE',`/api/fahndungen/${id}`); toast('Geloescht','success'); loadFahndungen(); } catch(e) { toast(e.message,'error'); } }
+
+// ══════════════════════════════════════════════════════════════════
+// DIENSTPLAN
+// ══════════════════════════════════════════════════════════════════
+async function loadDienstplan() {
+  const tbody = document.getElementById('dienstplan-tbody'); if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Laden</td></tr>';
+  try {
+    const data = await api('GET','/api/dienstplan'); if (!data) return;
+    const e = data.eintraege || [];
+    tbody.innerHTML = e.length === 0 ? '<tr><td colspan="6" class="loading-text">Keine Eintraege</td></tr>' :
+      e.map(r => `<tr><td><strong>${escHtml(r.tag)}</strong></td><td>${escHtml(r.username)}</td><td>${escHtml(r.fraktion)}</td><td>${escHtml(r.von_uhrzeit)}</td><td>${escHtml(r.bis_uhrzeit)}</td><td><button class="btn btn-danger btn-sm" onclick="deleteDienstplan(${r.id})">Loeschen</button></td></tr>`).join('');
+  } catch (err) { tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Fehler</td></tr>'; }
+}
+async function deleteDienstplan(id) { if (!confirm('Eintrag loeschen?')) return; try { await api('DELETE',`/api/dienstplan/${id}`); toast('Geloescht','success'); loadDienstplan(); } catch(e) { toast(e.message,'error'); } }
+
+// ══════════════════════════════════════════════════════════════════
+// ABWESENHEITEN
+// ══════════════════════════════════════════════════════════════════
+async function loadAbwesenheiten() {
+  const tbody = document.getElementById('abwesenheiten-tbody'); if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Laden</td></tr>';
+  try {
+    const data = await api('GET','/api/abwesenheiten'); if (!data) return;
+    const a = data.abwesenheiten || [];
+    tbody.innerHTML = a.length === 0 ? '<tr><td colspan="6" class="loading-text">Keine Abwesenheiten</td></tr>' :
+      a.map(r => `<tr><td>${escHtml(r.username)}</td><td>${escHtml(r.fraktion||'—')}</td><td>${escHtml(r.von)}</td><td>${escHtml(r.bis)}</td><td>${escHtml(r.grund)}</td><td><button class="btn btn-danger btn-sm" onclick="deleteAbwesenheit(${r.id})">Loeschen</button></td></tr>`).join('');
+  } catch (err) { tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Fehler</td></tr>'; }
+}
+async function deleteAbwesenheit(id) { if (!confirm('Abwesenheit loeschen?')) return; try { await api('DELETE',`/api/abwesenheiten/${id}`); toast('Geloescht','success'); loadAbwesenheiten(); } catch(e) { toast(e.message,'error'); } }
+
+// ══════════════════════════════════════════════════════════════════
+// AUSBILDUNGEN
+// ══════════════════════════════════════════════════════════════════
+async function loadAusbildungen() {
+  const tbody = document.getElementById('ausbildungen-tbody'); if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" class="loading-text">Laden</td></tr>';
+  try {
+    const data = await api('GET','/api/ausbildungen'); if (!data) return;
+    const a = data.ausbildungen || [];
+    tbody.innerHTML = a.length === 0 ? '<tr><td colspan="7" class="loading-text">Keine Ausbildungen</td></tr>' :
+      a.map(r => `<tr><td>${escHtml(r.username)}</td><td>${escHtml(r.fraktion)}</td><td>${escHtml(r.ausbildung)}</td><td>${escHtml(r.ausbilder_name||'—')}</td><td><span class="badge badge-${r.status==='laufend'?'warning':'success'}">${escHtml(r.status)}</span></td><td>${formatDate(r.gestartet_am)}</td><td><button class="btn btn-danger btn-sm" onclick="deleteAusbildung(${r.id})">Loeschen</button></td></tr>`).join('');
+  } catch (err) { tbody.innerHTML = '<tr><td colspan="7" class="loading-text">Fehler</td></tr>'; }
+}
+async function deleteAusbildung(id) { if (!confirm('Ausbildung loeschen?')) return; try { await api('DELETE',`/api/ausbildungen/${id}`); toast('Geloescht','success'); loadAusbildungen(); } catch(e) { toast(e.message,'error'); } }
 
 // ══════════════════════════════════════════════════════════════════
 // HELPERS

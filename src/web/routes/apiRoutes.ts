@@ -652,5 +652,87 @@ export function createApiRouter(client: Client): Router {
     res.json({ ok: true });
   });
 
+  // ════════════════════════════════════════════════════════════════════════════
+  // ABWESENHEITEN
+  // ════════════════════════════════════════════════════════════════════════════
+  router.get('/abwesenheiten', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    const guildId = (req.query.guildId as string) || client.guilds.cache.first()?.id || '';
+    const filter = (req.query.filter as string) || 'aktiv';
+    const where = filter === 'alle' ? '' : `AND aktiv = ${filter === 'aktiv' ? '1' : '0'}`;
+    const rows = db.prepare(`SELECT * FROM abwesenheiten WHERE guild_id = ? ${where} ORDER BY erstellt_am DESC`).all(guildId);
+    res.json({ abwesenheiten: rows });
+  });
+
+  router.delete('/abwesenheiten/:id', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    db.prepare('DELETE FROM abwesenheiten WHERE id = ?').run(parseInt(req.params.id));
+    res.json({ ok: true });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // AUSBILDUNGEN
+  // ════════════════════════════════════════════════════════════════════════════
+  router.get('/ausbildungen', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    const guildId = (req.query.guildId as string) || client.guilds.cache.first()?.id || '';
+    const filter = (req.query.filter as string) || 'alle';
+    const where = filter === 'alle' ? '' : `AND status = '${filter}'`;
+    const rows = db.prepare(`SELECT * FROM ausbildungen WHERE guild_id = ? ${where} ORDER BY gestartet_am DESC`).all(guildId);
+    res.json({ ausbildungen: rows });
+  });
+
+  router.delete('/ausbildungen/:id', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    db.prepare('DELETE FROM ausbildungen WHERE id = ?').run(parseInt(req.params.id));
+    res.json({ ok: true });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // TICKETS
+  // ════════════════════════════════════════════════════════════════════════════
+  router.get('/tickets', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    const guildId = (req.query.guildId as string) || client.guilds.cache.first()?.id || '';
+    const filter = (req.query.filter as string) || 'alle';
+    const where = filter === 'alle' ? '' : `AND status = '${filter}'`;
+    const rows = db.prepare(`SELECT * FROM tickets WHERE guild_id = ? ${where} ORDER BY erstellt_am DESC LIMIT 50`).all(guildId);
+    res.json({ tickets: rows });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // DIENSTPLAN
+  // ════════════════════════════════════════════════════════════════════════════
+  router.get('/dienstplan', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    const guildId = (req.query.guildId as string) || client.guilds.cache.first()?.id || '';
+    const rows = db.prepare(`SELECT * FROM dienstplan WHERE guild_id = ? ORDER BY CASE tag WHEN 'Montag' THEN 1 WHEN 'Dienstag' THEN 2 WHEN 'Mittwoch' THEN 3 WHEN 'Donnerstag' THEN 4 WHEN 'Freitag' THEN 5 WHEN 'Samstag' THEN 6 WHEN 'Sonntag' THEN 7 END, von_uhrzeit`).all(guildId);
+    res.json({ eintraege: rows });
+  });
+
+  router.delete('/dienstplan/:id', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    db.prepare('DELETE FROM dienstplan WHERE id = ?').run(parseInt(req.params.id));
+    res.json({ ok: true });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // FAHNDUNGEN
+  // ════════════════════════════════════════════════════════════════════════════
+  router.get('/fahndungen', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    const guildId = (req.query.guildId as string) || client.guilds.cache.first()?.id || '';
+    const filter = (req.query.filter as string) || 'gesucht';
+    const where = filter === 'alle' ? '' : `AND status = '${filter}'`;
+    const rows = db.prepare(`SELECT * FROM fahndungen WHERE guild_id = ? ${where} ORDER BY erstellt_am DESC`).all(guildId);
+    res.json({ fahndungen: rows });
+  });
+
+  router.delete('/fahndungen/:id', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    db.prepare('DELETE FROM fahndungen WHERE id = ?').run(parseInt(req.params.id));
+    res.json({ ok: true });
+  });
+
   return router;
 }
