@@ -31,23 +31,34 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
       {
         name: '🛡️ Administration',
         value: [
-          '`/admin` — Öffnet das Admin-Menü (Warn, Kick, Ban, Chat leeren, Server-Info)',
-          '`/help` — Zeigt dir deine verfügbaren Befehle (nur für dich sichtbar)',
+          '`/admin menu` — Admin-Menü (nur für dich sichtbar)',
+          '`/admin panel` — Permanentes Admin-Panel mit Buttons in den Kanal posten',
+          '`/help` — Zeigt deine verfügbaren Befehle',
         ].join('\n'),
         inline: false,
       },
       {
-        name: '⚖️ Justiz',
+        name: '⚖️ Justiz & Akten',
         value: [
-          '`/verfahren panel` — Erstellt das Verfahrens-Panel mit ➕ Button',
-          '`/embed erstellen` — Erstellt ein Embed in einem Kanal',
+          '`/verfahren panel` — Verfahrens-Panel mit ➕ Button erstellen',
+          '**Verfahrens-Buttons:** Bearbeiten, Notiz, Status ändern, Abschließen, Sperren',
+          '**PDFs:** Beim Abschluss werden automatisch Justizakte + Polizei-Verfahrensakte generiert',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '📝 Embeds',
+        value: [
+          '`/embed erstellen` — Embed in einen Kanal senden (mit Vorlagen)',
+          '`/embed bearbeiten` — Bereits erstellte Embeds nachträglich bearbeiten',
+          '**Rechtsklick → Apps → Embed bearbeiten** — Jedes Bot-Embed per Kontextmenü bearbeiten',
         ].join('\n'),
         inline: false,
       },
       {
         name: '🎭 Rollen',
         value: [
-          '`/rollen-panel erstellen` — Rollen-Konfigurationspanel',
+          '`/rollen-panel erstellen` — Rollen-Konfigurationspanel für Admins',
           '`/rollenmenu erstellen` — Selbstzuweisungs-Menü für Mitglieder',
         ].join('\n'),
         inline: false,
@@ -57,18 +68,45 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
         value: [
           '`/voice-setup` — Voice-System einrichten',
           '`/voice-config` — Voice-Konfiguration verwalten',
-          '**TempVoice:** Betritt den Erstell-Kanal → dein eigener Kanal wird erstellt mit Steuerungs-Interface (umbenennen, sperren, Benutzer verwalten).',
+          '**TempVoice:** Betritt den Erstell-Kanal → eigener Kanal mit Interface (umbenennen, sperren, Benutzer verwalten)',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '📱 TikTok Live',
+        value: [
+          '`/tiktok` — TikTok-Streamer zur Live-Überwachung hinzufügen/entfernen',
+          'Bei Live-Start wird automatisch eine Benachrichtigung im Live-Kanal gesendet.',
         ].join('\n'),
         inline: false,
       },
       {
         name: '⚙️ Setup & Konfiguration',
         value: [
-          '`/setup kanale` — Bot-Kanäle konfigurieren',
+          '`/setup kanale` — Bot-Kanäle konfigurieren (Verfahren, Akten, Log, Willkommen, ...)',
+          '`/setup ausbildung` — Ausbildungs-Kanäle konfigurieren',
           '`/setup voice` — Voice-System einrichten',
-          '`/setup rolle` — Rollen zuweisen',
+          '`/setup rolle` — Discord-Rollen Berechtigungsebenen zuweisen',
+          '`/setup support` — Support-Warteraum + Benachrichtigungskanal setzen',
+          '`/setup counter` — Statistik-Counter erstellen (Uhrzeit, Mitglieder, Online, Boosts)',
           '`/setup info` — Aktuelle Konfiguration anzeigen',
           '`/config` — Bot-Einstellungen & Statistiken',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '🎧 Support-System',
+        value: [
+          'Jemand betritt den Support-Warteraum → Bot spricht TTS-Ansage → Wartemusik',
+          'Online Supporter werden automatisch per Ping benachrichtigt.',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '📊 Statistik-Counter',
+        value: [
+          'Voice-Kanäle die alle 5 Min. aktualisiert werden:',
+          '🕐 Uhrzeit | 👥 Mitglieder | 🟢 Online | 💎 Boosts',
         ].join('\n'),
         inline: false,
       },
