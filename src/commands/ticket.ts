@@ -86,8 +86,9 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(sub => sub.setName('schliessen').setDescription('Schliesst das aktuelle Ticket'))
   .addSubcommand(sub => sub
     .setName('setup')
-    .setDescription('Konfiguriert die Ticket-Kategorie')
+    .setDescription('Konfiguriert die Ticket-Kategorie und den Log-Kanal')
     .addChannelOption(o => o.setName('kategorie').setDescription('Kategorie für Ticket-Kanäle').setRequired(true).addChannelTypes(ChannelType.GuildCategory))
+    .addChannelOption(o => o.setName('log').setDescription('Kanal für Ticket-Logs').setRequired(false).addChannelTypes(ChannelType.GuildText))
   );
 
 export async function execute(interaction: CommandInteraction): Promise<void> {
@@ -101,10 +102,17 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
       return;
     }
     const kategorie = interaction.options.getChannel('kategorie', true);
+    const logChannel = interaction.options.getChannel('log');
     const db = getDatabase();
-    db.prepare('UPDATE server_settings SET ticket_category_id = ? WHERE guild_id = ?')
-      .run(kategorie.id, interaction.guildId!);
-    await interaction.reply({ embeds: [createSuccessEmbed('Ticket-Kategorie gesetzt', `Tickets werden in ${kategorie} erstellt.`)], ephemeral: true });
+    if (logChannel) {
+      db.prepare('UPDATE server_settings SET ticket_category_id = ?, ticket_log_channel_id = ? WHERE guild_id = ?')
+        .run(kategorie.id, logChannel.id, interaction.guildId!);
+    } else {
+      db.prepare('UPDATE server_settings SET ticket_category_id = ? WHERE guild_id = ?')
+        .run(kategorie.id, interaction.guildId!);
+    }
+    const desc = `**Kategorie:** ${kategorie}` + (logChannel ? `\n**Log-Kanal:** ${logChannel}` : '');
+    await interaction.reply({ embeds: [createSuccessEmbed('Ticket-System konfiguriert', desc)], ephemeral: true });
     return;
   }
 
@@ -270,6 +278,8 @@ export async function handleTicketModal(interaction: ModalSubmitInteraction): Pr
 
     await ticketChannel.send({ content: `${member}`, embeds: [embed], components: [closeBtn] });
 
+    await ticketLog(guild, 'erstellt', channelName, member, member.user.tag, kat.label);
+
     await interaction.editReply({ embeds: [createSuccessEmbed('🎫 Ticket erstellt', `Dein Ticket wurde erstellt: ${ticketChannel}\n\nEin Staff-Mitglied wird sich melden.`)] });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
@@ -305,6 +315,8 @@ export async function closeTicketChannel(channel: TextChannel, member: GuildMemb
   const closedEmbed = new EmbedBuilder()
     .setColor(config.colors.warning as ColorResolvable)
     .setDescription(`🔒 **Ticket Closed by ${member}**`);
+
+  await ticketLog(channel.guild, 'geschlossen', channel.name, member, undefined, undefined);
 
   const controlRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId('ticket_oeffnen').setLabel('Öffnen').setStyle(ButtonStyle.Success).setEmoji('🔓'),
@@ -342,18 +354,64 @@ export async function reopenTicketChannel(channel: TextChannel, member: GuildMem
   } catch { /* */ }
 
   await channel.send({ embeds: [new EmbedBuilder().setColor(config.colors.success as ColorResolvable).setDescription(`🔓 **Ticket reopened by ${member}**`)] });
+
+  await ticketLog(channel.guild, 'geoeffnet', channel.name, member, undefined, undefined);
 }
 
 /** Löscht einen Ticket-Kanal */
 export async function deleteTicketChannel(channel: TextChannel, member: GuildMember): Promise<void> {
   const db = getDatabase();
+  const ticket = db.prepare("SELECT id, user_id, username, kategorie FROM tickets WHERE guild_id = ? AND thread_id = ?")
+    .get(channel.guildId, channel.id) as { id: number; user_id: string; username: string; kategorie: string } | undefined;
+
   db.prepare("DELETE FROM tickets WHERE guild_id = ? AND thread_id = ?").run(channel.guildId, channel.id);
+
+  await ticketLog(channel.guild, 'loeschen', channel.name, member, ticket?.username || 'Unbekannt', ticket?.kategorie || '');
 
   await channel.send({ embeds: [new EmbedBuilder().setColor(config.colors.error as ColorResolvable).setDescription('🗑️ Das Ticket wird in wenigen Sekunden gelöscht...')] });
 
   setTimeout(async () => {
     try { await channel.delete(`Ticket gelöscht von ${member.user.tag}`); } catch { /* */ }
   }, 5000);
+}
+
+/** Sendet ein Log-Embed in den Ticket-Log-Kanal */
+async function ticketLog(
+  guild: import('discord.js').Guild,
+  aktion: 'erstellt' | 'geschlossen' | 'geoeffnet' | 'loeschen',
+  ticketName: string,
+  staff: GuildMember,
+  ersteller?: string,
+  kategorie?: string
+): Promise<void> {
+  try {
+    const db = getDatabase();
+    const settings = db.prepare('SELECT ticket_log_channel_id FROM server_settings WHERE guild_id = ?')
+      .get(guild.id) as { ticket_log_channel_id: string | null } | undefined;
+    if (!settings?.ticket_log_channel_id) return;
+
+    const logChannel = await guild.channels.fetch(settings.ticket_log_channel_id).catch(() => null) as TextChannel | null;
+    if (!logChannel) return;
+
+    const colors: Record<string, number> = { erstellt: config.colors.success, geschlossen: config.colors.warning, geoeffnet: config.colors.info, loeschen: config.colors.error };
+    const icons: Record<string, string> = { erstellt: '🎫', geschlossen: '🔒', geoeffnet: '🔓', loeschen: '🗑️' };
+    const labels: Record<string, string> = { erstellt: 'Ticket erstellt', geschlossen: 'Ticket geschlossen', geoeffnet: 'Ticket geöffnet', loeschen: 'Ticket gelöscht' };
+
+    const embed = new EmbedBuilder()
+      .setColor(colors[aktion] as ColorResolvable)
+      .setTitle(`${icons[aktion]} ${labels[aktion]}`)
+      .addFields(
+        { name: 'Ticket', value: ticketName, inline: true },
+        { name: 'Aktion von', value: `${staff}`, inline: true },
+      );
+
+    if (ersteller) embed.addFields({ name: 'Ersteller', value: ersteller, inline: true });
+    if (kategorie) embed.addFields({ name: 'Kategorie', value: kategorie, inline: true });
+
+    embed.setFooter({ text: 'Ticket-Log | Deutscher RP Server' }).setTimestamp();
+
+    await logChannel.send({ embeds: [embed] });
+  } catch { /* stilles Fehler — Log darf nicht crashen */ }
 }
 
 export default { data, execute };
