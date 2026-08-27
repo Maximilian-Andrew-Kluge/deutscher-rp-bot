@@ -52,6 +52,14 @@ export class CounterService {
     // Voice-Kanäle erstellen (gesperrt — niemand kann joinen)
     const denyConnect = [{ id: guild.roles.everyone.id, deny: ['Connect' as const] }];
 
+    const now = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+    const clockChannel = await guild.channels.create({
+      name: `🕐 ${now} Uhr`,
+      type: ChannelType.GuildVoice,
+      parent: category.id,
+      permissionOverwrites: denyConnect,
+    });
+
     const membersChannel = await guild.channels.create({
       name: `👥 Mitglieder: ${guild.memberCount}`,
       type: ChannelType.GuildVoice,
@@ -69,14 +77,6 @@ export class CounterService {
 
     const boostsChannel = await guild.channels.create({
       name: `💎 Boosts: ${guild.premiumSubscriptionCount ?? 0}`,
-      type: ChannelType.GuildVoice,
-      parent: category.id,
-      permissionOverwrites: denyConnect,
-    });
-
-    const now = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
-    const clockChannel = await guild.channels.create({
-      name: `🕐 ${now} Uhr`,
       type: ChannelType.GuildVoice,
       parent: category.id,
       permissionOverwrites: denyConnect,
