@@ -53,11 +53,11 @@ const KATEGORIEN = {
     color: ButtonStyle.Success,
     modalTitle: 'Bewerbungs Ticket',
     fields: [
-      { id: 'name', label: 'Wie heißt du? (Vorname / Spitzname)', placeholder: 'z.B. Max', style: TextInputStyle.Short, required: true },
-      { id: 'alter', label: 'Wie alt bist du?', placeholder: 'z.B. 16', style: TextInputStyle.Short, required: true },
-      { id: 'serverzeit', label: 'Wie lange bist du schon auf dem Server?', placeholder: 'z.B. 3 Monate, seit Januar 2025', style: TextInputStyle.Short, required: true },
-      { id: 'erfahrung', label: 'Hast du Erfahrung als Admin/Moderator?', placeholder: 'z.B. Ja, auf Server XY als Moderator (6 Monate)', style: TextInputStyle.Paragraph, required: true },
-      { id: 'motivation', label: 'Warum möchtest du Admin werden?', placeholder: 'Erzähl uns deine Motivation...', style: TextInputStyle.Paragraph, required: true },
+      { id: 'name_alter', label: 'Name und Alter', placeholder: 'z.B. Max, 17 Jahre', style: TextInputStyle.Short, required: true },
+      { id: 'serverzeit', label: 'Wie lange bist du auf dem Server aktiv?', placeholder: 'z.B. Seit 3 Monaten, täglich 2-3 Stunden online', style: TextInputStyle.Short, required: true },
+      { id: 'erfahrung', label: 'Erfahrung als Admin/Moderator?', placeholder: 'Wo, wie lange, welche Aufgaben? Falls nein, schreibe "Keine Erfahrung"', style: TextInputStyle.Paragraph, required: true },
+      { id: 'motivation', label: 'Warum willst du Admin werden?', placeholder: 'Was motiviert dich? Was möchtest du im Team bewirken? Warum sollten wir dich nehmen?', style: TextInputStyle.Paragraph, required: true },
+      { id: 'situation', label: 'Wie gehst du mit Regelverstoessen um?', placeholder: 'Beschreibe an einem Beispiel, wie du reagieren würdest wenn jemand gegen die Regeln verstösst.', style: TextInputStyle.Paragraph, required: true },
     ],
   },
   bug: {
