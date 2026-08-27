@@ -810,6 +810,29 @@ export function createApiRouter(client: Client): Router {
     res.json({ ok: true, counter: newValue });
   });
 
+  // Ticket löschen (über Website)
+  router.delete('/tickets/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+    const db = getDatabase();
+    const { id } = req.params;
+    const ticket = db.prepare('SELECT thread_id, username FROM tickets WHERE id = ?').get(parseInt(id)) as { thread_id: string | null; username: string } | undefined;
+    if (!ticket) { res.status(404).json({ error: 'Ticket nicht gefunden' }); return; }
+
+    // Discord-Kanal löschen falls vorhanden
+    if (ticket.thread_id) {
+      try {
+        const channel = await client.channels.fetch(ticket.thread_id).catch(() => null);
+        if (channel && 'delete' in channel) {
+          await (channel as { delete: (r?: string) => Promise<unknown> }).delete('Ticket über Website gelöscht');
+        }
+      } catch { /* Kanal existiert evtl. nicht mehr */ }
+    }
+
+    db.prepare('DELETE FROM tickets WHERE id = ?').run(parseInt(id));
+    db.prepare('INSERT INTO admin_logs (username, aktion, details) VALUES (?, ?, ?)')
+      .run(req.admin!.username, 'ticket_delete', `Ticket #${id} von ${ticket.username}`);
+    res.json({ ok: true });
+  });
+
   // ════════════════════════════════════════════════════════════════════════════
   // DIENSTPLAN
   // ════════════════════════════════════════════════════════════════════════════

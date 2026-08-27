@@ -449,8 +449,8 @@ async function loadTickets() {
     const counterInput = document.getElementById('ticket-counter-value');
     if (counterInput) counterInput.value = String(data.counter ?? 0);
 
-    tbody.innerHTML = t.length === 0 ? '<tr><td colspan="6" class="loading-text">Keine Tickets</td></tr>' :
-      t.map(r => `<tr><td><strong>#${r.id}</strong></td><td>${escHtml(r.username)}</td><td>${escHtml(r.kategorie)}</td><td><span class="badge badge-${r.status==='offen'?'warning':'success'}">${escHtml(r.status)}</span></td><td>${formatDate(r.erstellt_am)}</td><td>${r.geschlossen_am ? formatDate(r.geschlossen_am) + ' von ' + escHtml(r.geschlossen_von||'') : '—'}</td></tr>`).join('');
+    tbody.innerHTML = t.length === 0 ? '<tr><td colspan="7" class="loading-text">Keine Tickets</td></tr>' :
+      t.map(r => `<tr><td><strong>#${r.id}</strong></td><td>${escHtml(r.username)}</td><td>${escHtml(r.kategorie)}</td><td><span class="badge badge-${r.status==='offen'?'warning':'success'}">${escHtml(r.status)}</span></td><td>${formatDate(r.erstellt_am)}</td><td>${r.geschlossen_am ? formatDate(r.geschlossen_am) : '—'}</td><td><button class="btn btn-danger btn-sm" onclick="deleteTicket(${r.id})">Loeschen</button></td></tr>`).join('');
   } catch (err) { tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Fehler</td></tr>'; }
 }
 
@@ -464,6 +464,12 @@ async function resetTicketCounter(e) {
     loadTickets();
   } catch (err) { toast(err.message, 'error'); }
   return false;
+}
+
+async function deleteTicket(id) {
+  if (!confirm('Ticket wirklich loeschen? Der Discord-Kanal wird ebenfalls geloescht.')) return;
+  try { await api('DELETE', `/api/tickets/${id}`); toast('Ticket geloescht', 'success'); loadTickets(); }
+  catch (err) { toast(err.message, 'error'); }
 }
 
 // ══════════════════════════════════════════════════════════════════
