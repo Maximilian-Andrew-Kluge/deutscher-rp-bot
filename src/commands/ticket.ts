@@ -219,9 +219,20 @@ export async function handleTicketModal(interaction: ModalSubmitInteraction): Pr
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    // Ticket-Nummer generieren
-    const count = (db.prepare('SELECT COUNT(*) as c FROM tickets WHERE guild_id = ?').get(guildId) as { c: number }).c;
-    const ticketNr = String(count + 1).padStart(4, '0');
+    // Ticket-Nummer generieren (fortlaufend, wird nie zurückgesetzt)
+    let ticketNr: string;
+    const lastTicket = db.prepare("SELECT thread_id FROM tickets WHERE guild_id = ? ORDER BY id DESC LIMIT 1")
+      .get(guildId) as { thread_id: string } | undefined;
+    const counterRow = db.prepare("SELECT counter FROM aktenzeichen_counter WHERE guild_id = ? AND prefix = 'TICKET' AND year = 0")
+      .get(guildId) as { counter: number } | undefined;
+    
+    if (counterRow) {
+      db.prepare("UPDATE aktenzeichen_counter SET counter = counter + 1 WHERE guild_id = ? AND prefix = 'TICKET' AND year = 0").run(guildId);
+      ticketNr = String(counterRow.counter + 1).padStart(4, '0');
+    } else {
+      db.prepare("INSERT INTO aktenzeichen_counter (guild_id, prefix, year, counter) VALUES (?, 'TICKET', 0, 1)").run(guildId);
+      ticketNr = '0001';
+    }
     const channelName = `ticket-${ticketNr}`;
 
     // Felder aus dem Modal lesen
