@@ -29,7 +29,8 @@ export function runMigrations(): void {
     'rettungsdienst_ausbildung_channel_id', 'justiz_ausbildung_channel_id', 'ankuendigung_channel_id',
     'willkommen_channel_id', 'live_channel_id', 'support_channel_id', 'support_notify_channel_id',
     'counter_category_id', 'counter_members_id', 'counter_online_id', 'counter_boosts_id', 'counter_clock_id',
-    'support_ausbildung_channel_id', 'adac_ausbildung_channel_id', 'admin_ausbildung_channel_id'];
+    'support_ausbildung_channel_id', 'adac_ausbildung_channel_id', 'admin_ausbildung_channel_id',
+    'ticket_category_id'];
   for (const col of settingsCols) {
     try {
       db.exec(`ALTER TABLE server_settings ADD COLUMN ${col} TEXT`);

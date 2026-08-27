@@ -2,7 +2,7 @@ import {
   CommandInteraction, SlashCommandBuilder, EmbedBuilder, ColorResolvable,
   GuildMember, TextChannel, ButtonBuilder, ButtonStyle, ActionRowBuilder,
   ButtonInteraction, ModalBuilder, TextInputBuilder, TextInputStyle,
-  ModalSubmitInteraction, ThreadAutoArchiveDuration, ChannelType,
+  ModalSubmitInteraction, ChannelType, PermissionFlagsBits, CategoryChannel,
 } from 'discord.js';
 import { getDatabase } from '../database/database';
 import { config } from '../config/config';
@@ -32,7 +32,7 @@ const KATEGORIEN = {
       { id: 'was', label: 'Was genau möchtest du melden?', placeholder: 'Beschreibe den Vorfall so detailliert wie möglich.', style: TextInputStyle.Paragraph, required: true },
       { id: 'wer', label: 'Wer ist beteiligt?', placeholder: 'Discord-Namen oder Roblox-Namen aller Beteiligten.', style: TextInputStyle.Short, required: true },
       { id: 'wann_wo', label: 'Wann und wo ist es passiert?', placeholder: 'z.B. Heute 15:30, am Rathaus / im Discord Voice', style: TextInputStyle.Short, required: true },
-      { id: 'beweise', label: 'Hast du Beweise? (Screenshots/Videos)', placeholder: 'Falls ja, lade sie nach dem Erstellen des Tickets im Thread hoch.', style: TextInputStyle.Short, required: false },
+      { id: 'beweise', label: 'Hast du Beweise? (Screenshots/Videos)', placeholder: 'Falls ja, lade sie nach dem Erstellen des Tickets im Kanal hoch.', style: TextInputStyle.Short, required: false },
       { id: 'sonstiges', label: 'Sonstiges', placeholder: 'Weitere Infos die für die Bearbeitung wichtig sein könnten.', style: TextInputStyle.Paragraph, required: false },
     ],
   },
@@ -45,7 +45,7 @@ const KATEGORIEN = {
       { id: 'gegen', label: 'Gegen wen richtet sich die Beschwerde?', placeholder: 'Discord- oder Roblox-Name der Person (oder Team/Fraktion).', style: TextInputStyle.Short, required: true },
       { id: 'was', label: 'Was genau ist passiert?', placeholder: 'Schildere den Vorfall ausführlich und sachlich.', style: TextInputStyle.Paragraph, required: true },
       { id: 'wann', label: 'Wann ist es passiert?', placeholder: 'Datum und ungefähre Uhrzeit.', style: TextInputStyle.Short, required: true },
-      { id: 'beweise', label: 'Beweise vorhanden?', placeholder: 'Screenshots, Videos, Chat-Logs? Falls ja, im Thread hochladen.', style: TextInputStyle.Short, required: false },
+      { id: 'beweise', label: 'Beweise vorhanden?', placeholder: 'Screenshots, Videos, Chat-Logs? Falls ja, im Ticket-Kanal hochladen.', style: TextInputStyle.Short, required: false },
       { id: 'ergebnis', label: 'Was erwartest du als Ergebnis?', placeholder: 'Was soll deiner Meinung nach passieren? (z.B. Verwarnung, Gespräch)', style: TextInputStyle.Paragraph, required: false },
     ],
   },
@@ -72,7 +72,7 @@ const KATEGORIEN = {
       { id: 'erwartet', label: 'Was sollte eigentlich passieren?', placeholder: 'Was hast du erwartet, das passiert? Was wäre das richtige Verhalten?', style: TextInputStyle.Paragraph, required: true },
       { id: 'schritte', label: 'Wie kann man den Bug reproduzieren?', placeholder: '1. Gehe zu... 2. Klicke auf... 3. Dann passiert...', style: TextInputStyle.Paragraph, required: true },
       { id: 'wo', label: 'Wo genau tritt er auf?', placeholder: 'Ort, Fahrzeug, Job, System, Menü — so spezifisch wie möglich.', style: TextInputStyle.Short, required: true },
-      { id: 'screenshot', label: 'Screenshot/Video vorhanden?', placeholder: 'Falls ja, nach Ticket-Erstellung im Thread hochladen.', style: TextInputStyle.Short, required: false },
+      { id: 'screenshot', label: 'Screenshot/Video vorhanden?', placeholder: 'Falls ja, nach Ticket-Erstellung im Kanal hochladen.', style: TextInputStyle.Short, required: false },
     ],
   },
 };
@@ -83,12 +83,30 @@ export const data = new SlashCommandBuilder()
   .setName('ticket')
   .setDescription('Ticket-System')
   .addSubcommand(sub => sub.setName('panel').setDescription('Postet das Ticket-Panel mit Kategorien-Buttons'))
-  .addSubcommand(sub => sub.setName('schliessen').setDescription('Schliesst das aktuelle Ticket'));
+  .addSubcommand(sub => sub.setName('schliessen').setDescription('Schliesst das aktuelle Ticket'))
+  .addSubcommand(sub => sub
+    .setName('setup')
+    .setDescription('Konfiguriert die Ticket-Kategorie')
+    .addChannelOption(o => o.setName('kategorie').setDescription('Kategorie für Ticket-Kanäle').setRequired(true).addChannelTypes(ChannelType.GuildCategory))
+  );
 
 export async function execute(interaction: CommandInteraction): Promise<void> {
   if (!interaction.isChatInputCommand()) return;
   const member = interaction.member as GuildMember;
   const sub = interaction.options.getSubcommand();
+
+  if (sub === 'setup') {
+    if (!hasAdminPermission(member)) {
+      await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Admins.')], ephemeral: true });
+      return;
+    }
+    const kategorie = interaction.options.getChannel('kategorie', true);
+    const db = getDatabase();
+    db.prepare('UPDATE server_settings SET ticket_category_id = ? WHERE guild_id = ?')
+      .run(kategorie.id, interaction.guildId!);
+    await interaction.reply({ embeds: [createSuccessEmbed('Ticket-Kategorie gesetzt', `Tickets werden in ${kategorie} erstellt.`)], ephemeral: true });
+    return;
+  }
 
   if (sub === 'panel') {
     if (!hasAdminPermission(member)) {
@@ -111,7 +129,6 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
       new ButtonBuilder().setCustomId('ticket_kat_meldung').setLabel('Support Meldungen').setStyle(ButtonStyle.Primary).setEmoji('📢'),
       new ButtonBuilder().setCustomId('ticket_kat_beschwerde').setLabel('Beschwerde').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
     );
-
     const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId('ticket_kat_bewerbung').setLabel('Bewerben (für Admin)').setStyle(ButtonStyle.Success).setEmoji('📋'),
       new ButtonBuilder().setCustomId('ticket_kat_bug').setLabel('Bugs Melden').setStyle(ButtonStyle.Danger).setEmoji('🐛'),
@@ -120,40 +137,20 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
     const channel = interaction.channel as TextChannel;
     await channel.send({ embeds: [embed], components: [row1, row2] });
     await interaction.reply({ embeds: [createSuccessEmbed('Panel gepostet', 'Das Ticket-Panel wurde gesendet.')], ephemeral: true });
+    return;
+  }
 
-  } else if (sub === 'schliessen') {
+  if (sub === 'schliessen') {
     if (!hasAdminPermission(member) && !hasModPermission(member)) {
       await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Staff.')], ephemeral: true });
       return;
     }
-
-    const db = getDatabase();
-    const ticket = db.prepare('SELECT id FROM tickets WHERE guild_id = ? AND thread_id = ? AND status = ?')
-      .get(interaction.guildId!, interaction.channelId, 'offen') as { id: number } | undefined;
-
-    if (!ticket) {
-      await interaction.reply({ embeds: [createErrorEmbed('Kein Ticket', 'Dies ist kein offenes Ticket.')], ephemeral: true });
-      return;
-    }
-
-    db.prepare("UPDATE tickets SET status = 'geschlossen', geschlossen_am = datetime('now'), geschlossen_von = ? WHERE id = ?")
-      .run(member.user.tag, ticket.id);
-
-    await interaction.reply({ embeds: [createSuccessEmbed('🔒 Ticket geschlossen', `Geschlossen von ${member}. Thread wird archiviert.`)] });
-
-    setTimeout(async () => {
-      try {
-        const thread = interaction.channel;
-        if (thread && 'setArchived' in thread) {
-          await (thread as { setArchived: (a: boolean) => Promise<unknown> }).setArchived(true);
-        }
-      } catch { /* ignore */ }
-    }, 5000);
+    await closeTicketChannel(interaction.channel as TextChannel, member, interaction);
   }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// BUTTON + MODAL HANDLER (aufgerufen vom PanelManager)
+// BUTTON HANDLER — aufgerufen vom PanelManager
 // ══════════════════════════════════════════════════════════════════════════════
 
 /** Öffnet das Modal für die gewählte Ticket-Kategorie */
@@ -183,13 +180,14 @@ export function handleTicketButton(interaction: ButtonInteraction): ModalBuilder
   return modal;
 }
 
-/** Verarbeitet das Ticket-Modal und erstellt den Thread */
+/** Verarbeitet das Ticket-Modal und erstellt den Textkanal */
 export async function handleTicketModal(interaction: ModalSubmitInteraction): Promise<void> {
   const katKey = interaction.customId.replace('ticket_modal_', '') as TicketKategorie;
   const kat = KATEGORIEN[katKey];
   if (!kat) return;
 
   const member = interaction.member as GuildMember;
+  const guild = interaction.guild!;
   const guildId = interaction.guildId!;
   const db = getDatabase();
 
@@ -201,10 +199,22 @@ export async function handleTicketModal(interaction: ModalSubmitInteraction): Pr
     return;
   }
 
+  // Ticket-Kategorie aus Settings laden
+  const settings = db.prepare('SELECT ticket_category_id FROM server_settings WHERE guild_id = ?')
+    .get(guildId) as { ticket_category_id: string | null } | undefined;
+
+  if (!settings?.ticket_category_id) {
+    await interaction.reply({ embeds: [createErrorEmbed('Nicht konfiguriert', 'Ticket-Kategorie nicht gesetzt. Admin muss `/ticket setup` ausführen.')], ephemeral: true });
+    return;
+  }
+
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const channel = interaction.channel as TextChannel;
+    // Ticket-Nummer generieren
+    const count = (db.prepare('SELECT COUNT(*) as c FROM tickets WHERE guild_id = ?').get(guildId) as { c: number }).c;
+    const ticketNr = String(count + 1).padStart(4, '0');
+    const channelName = `ticket-${ticketNr}`;
 
     // Felder aus dem Modal lesen
     const fieldValues: Record<string, string> = {};
@@ -212,48 +222,138 @@ export async function handleTicketModal(interaction: ModalSubmitInteraction): Pr
       try { fieldValues[f.id] = interaction.fields.getTextInputValue(f.id).trim(); } catch { fieldValues[f.id] = ''; }
     });
 
-    // Thread erstellen
-    const thread = await channel.threads.create({
-      name: `${kat.emoji} ${kat.label} — ${member.user.username}`,
-      autoArchiveDuration: 4320 as 60,
-      type: 12 as 11, // PrivateThread
-      reason: `Ticket: ${kat.label} von ${member.user.tag}`,
+    // Textkanal in der Ticket-Kategorie erstellen
+    const ticketChannel = await guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      parent: settings.ticket_category_id,
+      permissionOverwrites: [
+        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] },
+        { id: guild.members.me!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageMessages] },
+      ],
+      reason: `Ticket ${ticketNr}: ${kat.label} von ${member.user.tag}`,
     });
 
-    await thread.members.add(member.id);
+    // Staff-Rollen Zugriff geben (Admins, Mods, Support)
+    const staffKeys = ['owner', 'coOwner', 'administrator', 'administratorAnwaerter', 'moderator', 'supportLeitung', 'supporter', 'supportAnwaerter'];
+    const roleConfigs = db.prepare('SELECT role_id FROM role_config WHERE guild_id = ? AND role_key IN (' + staffKeys.map(() => '?').join(',') + ')')
+      .all(guildId, ...staffKeys) as Array<{ role_id: string }>;
+
+    for (const rc of roleConfigs) {
+      try {
+        await ticketChannel.permissionOverwrites.edit(rc.role_id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
+      } catch { /* Rolle existiert evtl. nicht */ }
+    }
 
     // In DB speichern
     db.prepare('INSERT INTO tickets (guild_id, user_id, username, thread_id, kategorie) VALUES (?, ?, ?, ?, ?)')
-      .run(guildId, member.id, member.user.tag, thread.id, katKey);
+      .run(guildId, member.id, member.user.tag, ticketChannel.id, katKey);
 
-    // Ticket-Info Embed
+    // Willkommens-Embed mit allen Antworten
     const embed = new EmbedBuilder()
       .setColor(config.colors.info as ColorResolvable)
       .setTitle(`${kat.emoji} ${kat.modalTitle}`)
-      .setDescription(`Ticket von ${member}\n\n**Kategorie:** ${kat.label}`)
+      .setDescription(`Willkommen ${member}, es wird sich bald jemand dein Ticket ansehen.`)
       .setThumbnail(member.user.displayAvatarURL({ size: 128 }))
-      .setFooter({ text: `Ticket-ID: ${thread.id} | Deutscher RP Server` })
+      .setFooter({ text: `Ticket #${ticketNr} | ${kat.label}` })
       .setTimestamp();
 
-    // Antworten als Felder hinzufügen
     kat.fields.forEach(f => {
       const value = fieldValues[f.id];
-      if (value) {
-        embed.addFields({ name: f.label, value: value.substring(0, 1020), inline: false });
-      }
+      if (value) embed.addFields({ name: f.label, value: value.substring(0, 1020), inline: false });
     });
 
     const closeBtn = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('ticket_schliessen').setLabel('Ticket schliessen').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+      new ButtonBuilder().setCustomId('ticket_schliessen').setLabel('Schließen').setStyle(ButtonStyle.Secondary).setEmoji('🔒'),
     );
 
-    await thread.send({ embeds: [embed], components: [closeBtn] });
+    await ticketChannel.send({ content: `${member}`, embeds: [embed], components: [closeBtn] });
 
-    await interaction.editReply({ embeds: [createSuccessEmbed('🎫 Ticket erstellt', `Dein Ticket wurde erstellt: ${thread}\n\nEin Staff-Mitglied wird sich melden.`)] });
+    await interaction.editReply({ embeds: [createSuccessEmbed('🎫 Ticket erstellt', `Dein Ticket wurde erstellt: ${ticketChannel}\n\nEin Staff-Mitglied wird sich melden.`)] });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
     await interaction.editReply({ embeds: [createErrorEmbed('Fehler', `Ticket konnte nicht erstellt werden: ${msg}`)] });
   }
+}
+
+/** Schließt ein Ticket (Button oder Command) */
+export async function closeTicketChannel(channel: TextChannel, member: GuildMember, interaction: ButtonInteraction | CommandInteraction): Promise<void> {
+  const db = getDatabase();
+  const guildId = channel.guildId;
+
+  const ticket = db.prepare('SELECT id, user_id FROM tickets WHERE guild_id = ? AND thread_id = ? AND status = ?')
+    .get(guildId, channel.id, 'offen') as { id: number; user_id: string } | undefined;
+
+  if (!ticket) {
+    if ('reply' in interaction && !('replied' in interaction && (interaction as { replied: boolean }).replied)) {
+      await interaction.reply({ embeds: [createErrorEmbed('Kein Ticket', 'Dies ist kein offenes Ticket.')], ephemeral: true });
+    }
+    return;
+  }
+
+  // Status setzen
+  db.prepare("UPDATE tickets SET status = 'geschlossen', geschlossen_am = datetime('now'), geschlossen_von = ? WHERE id = ?")
+    .run(member.user.tag, ticket.id);
+
+  // Berechtigungen entziehen (User kann nicht mehr schreiben)
+  try {
+    await channel.permissionOverwrites.edit(ticket.user_id, { SendMessages: false });
+  } catch { /* */ }
+
+  // "Ticket Closed" Nachricht + Kontrolle-Buttons
+  const closedEmbed = new EmbedBuilder()
+    .setColor(config.colors.warning as ColorResolvable)
+    .setDescription(`🔒 **Ticket Closed by ${member}**`);
+
+  const controlRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId('ticket_oeffnen').setLabel('Öffnen').setStyle(ButtonStyle.Success).setEmoji('🔓'),
+    new ButtonBuilder().setCustomId('ticket_loeschen').setLabel('Löschen').setStyle(ButtonStyle.Danger).setEmoji('🗑️'),
+  );
+
+  const controlEmbed = new EmbedBuilder()
+    .setColor(config.colors.server as ColorResolvable)
+    .setDescription('Ticketkontrollen für das Support-Team');
+
+  if ('replied' in interaction || 'deferred' in interaction) {
+    try {
+      if (!(interaction as { replied?: boolean }).replied && !(interaction as { deferred?: boolean }).deferred) {
+        await (interaction as ButtonInteraction).update({});
+      }
+    } catch { /* */ }
+  }
+
+  await channel.send({ embeds: [closedEmbed, controlEmbed], components: [controlRow] });
+}
+
+/** Öffnet ein geschlossenes Ticket wieder */
+export async function reopenTicketChannel(channel: TextChannel, member: GuildMember): Promise<void> {
+  const db = getDatabase();
+  const ticket = db.prepare('SELECT id, user_id FROM tickets WHERE guild_id = ? AND thread_id = ? AND status = ?')
+    .get(channel.guildId, channel.id, 'geschlossen') as { id: number; user_id: string } | undefined;
+
+  if (!ticket) return;
+
+  db.prepare("UPDATE tickets SET status = 'offen', geschlossen_am = NULL, geschlossen_von = NULL WHERE id = ?").run(ticket.id);
+
+  // Berechtigungen wiederherstellen
+  try {
+    await channel.permissionOverwrites.edit(ticket.user_id, { SendMessages: true });
+  } catch { /* */ }
+
+  await channel.send({ embeds: [new EmbedBuilder().setColor(config.colors.success as ColorResolvable).setDescription(`🔓 **Ticket reopened by ${member}**`)] });
+}
+
+/** Löscht einen Ticket-Kanal */
+export async function deleteTicketChannel(channel: TextChannel, member: GuildMember): Promise<void> {
+  const db = getDatabase();
+  db.prepare("DELETE FROM tickets WHERE guild_id = ? AND thread_id = ?").run(channel.guildId, channel.id);
+
+  await channel.send({ embeds: [new EmbedBuilder().setColor(config.colors.error as ColorResolvable).setDescription('🗑️ Das Ticket wird in wenigen Sekunden gelöscht...')] });
+
+  setTimeout(async () => {
+    try { await channel.delete(`Ticket gelöscht von ${member.user.tag}`); } catch { /* */ }
+  }, 5000);
 }
 
 export default { data, execute };

@@ -75,9 +75,38 @@ export class PanelManager {
       return;
     }
 
-    // ── Ticket schliessen (Button im Thread) ──
+    // ── Ticket schliessen ──
     if (id === 'ticket_schliessen') {
-      await this.handleTicketSchliessen(interaction, member);
+      if (!hasAdminPermission(member) && !hasModPermission(member)) {
+        await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Staff kann Tickets schliessen.')], ephemeral: true });
+        return;
+      }
+      const { closeTicketChannel } = await import('../commands/ticket');
+      await closeTicketChannel(interaction.channel as TextChannel, member, interaction);
+      return;
+    }
+
+    // ── Ticket wieder öffnen ──
+    if (id === 'ticket_oeffnen') {
+      if (!hasAdminPermission(member) && !hasModPermission(member)) {
+        await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Staff.')], ephemeral: true });
+        return;
+      }
+      const { reopenTicketChannel } = await import('../commands/ticket');
+      await interaction.deferUpdate();
+      await reopenTicketChannel(interaction.channel as TextChannel, member);
+      return;
+    }
+
+    // ── Ticket löschen ──
+    if (id === 'ticket_loeschen') {
+      if (!hasAdminPermission(member) && !hasModPermission(member)) {
+        await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Staff.')], ephemeral: true });
+        return;
+      }
+      const { deleteTicketChannel } = await import('../commands/ticket');
+      await interaction.deferUpdate();
+      await deleteTicketChannel(interaction.channel as TextChannel, member);
       return;
     }
 
@@ -1953,37 +1982,6 @@ export class PanelManager {
     }
 
     return { channel, ownerId: tempRow.owner_id };
-  }
-
-  // ── Ticket schliessen (Button im Thread) ───────────────────────────────────
-  private async handleTicketSchliessen(interaction: ButtonInteraction, member: GuildMember): Promise<void> {
-    if (!hasAdminPermission(member) && !hasModPermission(member)) {
-      await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Staff kann Tickets schliessen.')], ephemeral: true });
-      return;
-    }
-
-    const db = getDatabase();
-    const ticket = db.prepare('SELECT id FROM tickets WHERE guild_id = ? AND thread_id = ? AND status = ?')
-      .get(interaction.guildId!, interaction.channelId, 'offen') as { id: number } | undefined;
-
-    if (!ticket) {
-      await interaction.reply({ embeds: [createErrorEmbed('Kein Ticket', 'Dieses Ticket ist bereits geschlossen.')], ephemeral: true });
-      return;
-    }
-
-    db.prepare("UPDATE tickets SET status = 'geschlossen', geschlossen_am = datetime('now'), geschlossen_von = ? WHERE id = ?")
-      .run(member.user.tag, ticket.id);
-
-    await interaction.reply({ embeds: [createSuccessEmbed('🔒 Ticket geschlossen', `Geschlossen von ${member}. Thread wird archiviert.`)] });
-
-    setTimeout(async () => {
-      try {
-        const thread = interaction.channel;
-        if (thread && 'setArchived' in thread) {
-          await (thread as { setArchived: (a: boolean) => Promise<unknown> }).setArchived(true);
-        }
-      } catch { /* ignore */ }
-    }, 5000);
   }
 
   // ── Admin-Panel Button-Handler (öffnet User-Select statt ID-Eingabe) ──
