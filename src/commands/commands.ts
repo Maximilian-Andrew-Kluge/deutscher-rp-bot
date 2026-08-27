@@ -103,6 +103,53 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
         inline: false,
       },
       {
+        name: '🎫 Ticket-System',
+        value: [
+          '`/ticket panel` — Ticket-Panel mit Button in den Kanal posten',
+          '`/ticket schliessen` — Offenes Ticket schliessen',
+          '**Button:** User klickt → privater Thread wird erstellt → Staff wird informiert',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '📅 Abwesenheit',
+        value: [
+          '`/abwesend melden` — Als abwesend melden (Von/Bis/Grund)',
+          '`/abwesend beenden` — Abwesenheit vorzeitig beenden',
+          '`/abwesend liste` — Alle aktuell Abwesenden anzeigen',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '📚 Ausbildung',
+        value: [
+          '`/ausbildung starten` — Ausbildung für ein Mitglied starten',
+          '`/ausbildung abschliessen` — Laufende Ausbildung abschliessen',
+          '`/ausbildung liste` — Alle Ausbildungen anzeigen (laufend/abgeschlossen)',
+          '`/ausbildung profil` — Ausbildungen eines Mitglieds anzeigen',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '📋 Dienstplan',
+        value: [
+          '`/dienstplan eintragen` — Schicht eintragen (Tag + Uhrzeit)',
+          '`/dienstplan austragen` — Eintrag entfernen',
+          '`/dienstplan anzeigen` — Wochenübersicht (Filter nach Fraktion)',
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: '🚨 Fahndung',
+        value: [
+          '`/fahndung erstellen` — Neue Fahndung ausschreiben (nur Polizei)',
+          '`/fahndung gefasst` — Fahndung als gefasst markieren',
+          '`/fahndung loeschen` — Fahndung entfernen',
+          '`/fahndung liste` — Alle aktiven Fahndungen anzeigen',
+        ].join('\n'),
+        inline: false,
+      },
+      {
         name: '📊 Statistik-Counter',
         value: [
           'Voice-Kanäle die alle 5 Min. aktualisiert werden:',
