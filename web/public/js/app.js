@@ -443,9 +443,27 @@ async function loadTickets() {
   try {
     const data = await api('GET','/api/tickets'); if (!data) return;
     const t = data.tickets || [];
+    // Counter anzeigen
+    const counterEl = document.getElementById('ticket-counter');
+    if (counterEl) counterEl.textContent = String(data.counter ?? 0);
+    const counterInput = document.getElementById('ticket-counter-value');
+    if (counterInput) counterInput.value = String(data.counter ?? 0);
+
     tbody.innerHTML = t.length === 0 ? '<tr><td colspan="6" class="loading-text">Keine Tickets</td></tr>' :
       t.map(r => `<tr><td><strong>#${r.id}</strong></td><td>${escHtml(r.username)}</td><td>${escHtml(r.kategorie)}</td><td><span class="badge badge-${r.status==='offen'?'warning':'success'}">${escHtml(r.status)}</span></td><td>${formatDate(r.erstellt_am)}</td><td>${r.geschlossen_am ? formatDate(r.geschlossen_am) + ' von ' + escHtml(r.geschlossen_von||'') : '—'}</td></tr>`).join('');
   } catch (err) { tbody.innerHTML = '<tr><td colspan="6" class="loading-text">Fehler</td></tr>'; }
+}
+
+async function resetTicketCounter(e) {
+  e.preventDefault();
+  const value = parseInt(document.getElementById('ticket-counter-value').value) || 0;
+  if (!confirm(`Ticket-Counter wirklich auf ${value} setzen?`)) return false;
+  try {
+    await api('POST', '/api/tickets/reset-counter', { value });
+    toast(`Counter auf ${value} gesetzt`, 'success');
+    loadTickets();
+  } catch (err) { toast(err.message, 'error'); }
+  return false;
 }
 
 // ══════════════════════════════════════════════════════════════════

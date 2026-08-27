@@ -423,7 +423,21 @@
       <section id="page-tickets" class="page">
         <div class="page-header">
           <h2>Tickets</h2>
-          <button class="btn btn-secondary btn-sm" onclick="loadTickets()">Aktualisieren</button>
+          <div class="page-header-actions">
+            <button class="btn btn-secondary btn-sm" onclick="loadTickets()">Aktualisieren</button>
+          </div>
+        </div>
+        <div class="stats-grid" style="margin-bottom:16px">
+          <div class="stat-card"><div class="stat-icon">🎫</div><div class="stat-body"><div class="stat-value" id="ticket-counter">—</div><div class="stat-label">Ticket-Counter</div></div></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;max-width:400px">
+          <div class="card-header">Counter zuruecksetzen</div>
+          <div class="card-body">
+            <form id="form-ticket-counter" onsubmit="return resetTicketCounter(event)" style="display:flex;gap:10px;align-items:flex-end">
+              <div class="form-group" style="margin:0;flex:1"><label>Neuer Wert</label><input type="number" id="ticket-counter-value" min="0" value="0" required /></div>
+              <button type="submit" class="btn btn-primary btn-sm">Setzen</button>
+            </form>
+          </div>
         </div>
         <div class="table-wrapper">
           <table class="data-table"><thead><tr><th>#</th><th>Benutzer</th><th>Kategorie</th><th>Status</th><th>Erstellt</th><th>Geschlossen</th></tr></thead>

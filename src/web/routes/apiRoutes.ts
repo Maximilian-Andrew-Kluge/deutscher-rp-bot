@@ -792,7 +792,22 @@ export function createApiRouter(client: Client): Router {
     const filter = (req.query.filter as string) || 'alle';
     const where = filter === 'alle' ? '' : `AND status = '${filter}'`;
     const rows = db.prepare(`SELECT * FROM tickets WHERE guild_id = ? ${where} ORDER BY erstellt_am DESC LIMIT 50`).all(guildId);
-    res.json({ tickets: rows });
+    // Ticket-Counter laden
+    const counter = db.prepare("SELECT counter FROM aktenzeichen_counter WHERE guild_id = ? AND prefix = 'TICKET' AND year = 0")
+      .get(guildId) as { counter: number } | undefined;
+    res.json({ tickets: rows, counter: counter?.counter ?? 0 });
+  });
+
+  // Ticket-Counter zurücksetzen
+  router.post('/tickets/reset-counter', (req: AuthRequest, res: Response): void => {
+    const db = getDatabase();
+    const guildId = (req.body.guildId as string) || client.guilds.cache.first()?.id || '';
+    const newValue = parseInt(req.body.value) || 0;
+    db.prepare("UPDATE aktenzeichen_counter SET counter = ? WHERE guild_id = ? AND prefix = 'TICKET' AND year = 0")
+      .run(newValue, guildId);
+    db.prepare('INSERT INTO admin_logs (username, aktion, details) VALUES (?, ?, ?)')
+      .run(req.admin!.username, 'ticket_counter_reset', `Neuer Wert: ${newValue}`);
+    res.json({ ok: true, counter: newValue });
   });
 
   // ════════════════════════════════════════════════════════════════════════════
