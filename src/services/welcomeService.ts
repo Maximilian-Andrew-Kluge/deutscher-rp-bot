@@ -16,8 +16,18 @@ export class WelcomeService {
     try {
       const db = getDatabase();
       const settings = db.prepare(
-        'SELECT willkommen_channel_id FROM server_settings WHERE guild_id = ?'
-      ).get(member.guild.id) as { willkommen_channel_id: string | null } | undefined;
+        'SELECT willkommen_channel_id, auto_role_id FROM server_settings WHERE guild_id = ?'
+      ).get(member.guild.id) as { willkommen_channel_id: string | null; auto_role_id: string | null } | undefined;
+
+      // Auto-Rolle zuweisen (z.B. "Zivil")
+      if (settings?.auto_role_id) {
+        try {
+          await member.roles.add(settings.auto_role_id);
+          console.log(`✅ Auto-Rolle vergeben an ${member.user.tag}`);
+        } catch (err) {
+          console.error(`❌ Fehler beim Zuweisen der Auto-Rolle an ${member.user.tag}:`, err);
+        }
+      }
 
       if (!settings?.willkommen_channel_id) return;
 

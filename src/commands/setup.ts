@@ -70,6 +70,12 @@ export const data = new SlashCommandBuilder()
       ))
     .addRoleOption(o => o.setName('rolle').setDescription('Die Discord-Rolle').setRequired(true))
   )
+  .addSubcommand(sub => sub
+    .setName('autorolle')
+    .setDescription('Rolle die neue Mitglieder automatisch erhalten (z.B. Zivil)')
+    .addRoleOption(o => o.setName('rolle').setDescription('Die Rolle die automatisch vergeben wird').setRequired(false))
+    .addBooleanOption(o => o.setName('deaktivieren').setDescription('Auto-Rolle deaktivieren?').setRequired(false))
+  )
   .addSubcommand(sub => sub.setName('info').setDescription('Zeigt die aktuelle Konfiguration'))
   .addSubcommand(sub => sub
     .setName('support')
@@ -245,6 +251,42 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
       await interaction.editReply({ embeds: [createErrorEmbed('Fehler', msg)] });
     }
 
+  } else if (sub === 'autorolle') {
+    const rolle = interaction.options.getRole('rolle');
+    const deaktivieren = interaction.options.getBoolean('deaktivieren');
+
+    if (deaktivieren) {
+      db.prepare(`UPDATE server_settings SET auto_role_id = NULL WHERE guild_id = ?`).run(interaction.guildId!);
+      await interaction.reply({
+        embeds: [createSuccessEmbed('Auto-Rolle deaktiviert', 'Neue Mitglieder erhalten keine automatische Rolle mehr.')],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (!rolle) {
+      // Aktuelle Einstellung anzeigen
+      const s = db.prepare('SELECT auto_role_id FROM server_settings WHERE guild_id = ?').get(interaction.guildId!) as { auto_role_id: string | null } | undefined;
+      if (s?.auto_role_id) {
+        await interaction.reply({
+          embeds: [createSuccessEmbed('Auto-Rolle', `Aktuelle Auto-Rolle: <@&${s.auto_role_id}>\n\nNeue Mitglieder erhalten diese Rolle automatisch.`)],
+          ephemeral: true,
+        });
+      } else {
+        await interaction.reply({
+          embeds: [createErrorEmbed('Keine Auto-Rolle', 'Es ist keine Auto-Rolle konfiguriert.\n\nNutze `/setup autorolle rolle:@Zivil` um eine zu setzen.')],
+          ephemeral: true,
+        });
+      }
+      return;
+    }
+
+    db.prepare(`UPDATE server_settings SET auto_role_id = ? WHERE guild_id = ?`).run(rolle.id, interaction.guildId!);
+    await interaction.reply({
+      embeds: [createSuccessEmbed('Auto-Rolle konfiguriert', `Neue Mitglieder erhalten ab sofort automatisch die Rolle ${rolle}.\n\n⚠️ Stelle sicher, dass der Bot eine höhere Rolle als ${rolle} hat!`)],
+      ephemeral: true,
+    });
+
   } else if (sub === 'info') {
     type SettingsRow = Record<string, string | null>;
     const s = db.prepare('SELECT * FROM server_settings WHERE guild_id = ?').get(interaction.guildId!) as SettingsRow | undefined;
@@ -268,6 +310,7 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
         { name: '⚖️ Justiz-Ausbildung', value: ch(s?.justiz_ausbildung_channel_id), inline: true },
         { name: '🎧 Support-Warteraum', value: ch(s?.support_channel_id), inline: true },
         { name: '📄 Support-Benachrichtigung', value: ch(s?.support_notify_channel_id), inline: true },
+        { name: '🎭 Auto-Rolle (Zivil)', value: s?.auto_role_id ? `<@&${s.auto_role_id}>` : '❌ Nicht gesetzt', inline: true },
         {
           name: `🎭 Konfigurierte Rollen (${roles.length})`,
           value: roles.length > 0
