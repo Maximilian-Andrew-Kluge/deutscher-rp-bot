@@ -55,10 +55,10 @@ const KATEGORIEN = {
     color: ButtonStyle.Success,
     modalTitle: 'Admin-Bewerbung',
     fields: [
-      { id: 'vorstellung', label: 'Stell dich kurz vor (Name, Alter, Aktivität)', placeholder: 'z.B. Max, 18 Jahre, täglich 3-4h online seit 2 Monaten', style: TextInputStyle.Short, required: true },
+      { id: 'vorstellung', label: 'Kurze Vorstellung (Name, Alter)', placeholder: 'z.B. Max, 18 Jahre, täglich 3-4h online seit 2 Monaten', style: TextInputStyle.Short, required: true },
       { id: 'staerken', label: 'Was sind deine Stärken im Team?', placeholder: 'z.B. Kommunikation, Geduld, schnelle Reaktionszeit, Fairness...', style: TextInputStyle.Paragraph, required: true },
-      { id: 'szenario', label: 'Szenario: 2 Spieler streiten im RP — was tust du?', placeholder: 'Beschreibe Schritt für Schritt wie du die Situation lösen würdest.', style: TextInputStyle.Paragraph, required: true },
-      { id: 'ziele', label: 'Was willst du als Admin auf dem Server bewirken?', placeholder: 'Welche Ideen oder Verbesserungen würdest du einbringen?', style: TextInputStyle.Paragraph, required: true },
+      { id: 'szenario', label: 'Wie löst du einen Streit im RP?', placeholder: 'Beschreibe Schritt für Schritt wie du die Situation lösen würdest.', style: TextInputStyle.Paragraph, required: true },
+      { id: 'ziele', label: 'Was willst du als Admin bewirken?', placeholder: 'Welche Ideen oder Verbesserungen würdest du einbringen?', style: TextInputStyle.Paragraph, required: true },
       { id: 'verfuegbarkeit', label: 'Wann bist du verfügbar? (Zeiten/Tage)', placeholder: 'z.B. Mo-Fr ab 16 Uhr, Wochenende ganztags', style: TextInputStyle.Short, required: true },
     ],
   },
