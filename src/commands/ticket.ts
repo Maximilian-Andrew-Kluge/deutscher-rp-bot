@@ -55,11 +55,11 @@ const KATEGORIEN = {
     color: ButtonStyle.Success,
     modalTitle: 'Admin-Bewerbung',
     fields: [
-      { id: 'name_alter', label: 'Name und Alter', placeholder: 'z.B. Max, 17 Jahre', style: TextInputStyle.Short, required: true },
-      { id: 'serverzeit', label: 'Wie lange bist du auf dem Server aktiv?', placeholder: 'z.B. Seit 3 Monaten, täglich 2-3 Stunden online', style: TextInputStyle.Short, required: true },
-      { id: 'erfahrung', label: 'Erfahrung als Admin/Moderator?', placeholder: 'Wo, wie lange, welche Aufgaben? Falls nein: "Keine Erfahrung"', style: TextInputStyle.Paragraph, required: true },
-      { id: 'motivation', label: 'Warum willst du Admin werden?', placeholder: 'Was motiviert dich? Was möchtest du im Team bewirken? Warum sollten wir dich nehmen?', style: TextInputStyle.Paragraph, required: true },
-      { id: 'situation', label: 'Wie gehst du mit Regelverstoessen um?', placeholder: 'Beschreibe an einem Beispiel, wie du reagieren würdest wenn jemand Regeln bricht.', style: TextInputStyle.Paragraph, required: true },
+      { id: 'vorstellung', label: 'Stell dich kurz vor (Name, Alter, Aktivität)', placeholder: 'z.B. Max, 18 Jahre, täglich 3-4h online seit 2 Monaten', style: TextInputStyle.Short, required: true },
+      { id: 'staerken', label: 'Was sind deine Stärken im Team?', placeholder: 'z.B. Kommunikation, Geduld, schnelle Reaktionszeit, Fairness...', style: TextInputStyle.Paragraph, required: true },
+      { id: 'szenario', label: 'Szenario: 2 Spieler streiten im RP — was tust du?', placeholder: 'Beschreibe Schritt für Schritt wie du die Situation lösen würdest.', style: TextInputStyle.Paragraph, required: true },
+      { id: 'ziele', label: 'Was willst du als Admin auf dem Server bewirken?', placeholder: 'Welche Ideen oder Verbesserungen würdest du einbringen?', style: TextInputStyle.Paragraph, required: true },
+      { id: 'verfuegbarkeit', label: 'Wann bist du verfügbar? (Zeiten/Tage)', placeholder: 'z.B. Mo-Fr ab 16 Uhr, Wochenende ganztags', style: TextInputStyle.Short, required: true },
     ],
   },
   bug: {
