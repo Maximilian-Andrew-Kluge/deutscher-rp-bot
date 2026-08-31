@@ -76,7 +76,7 @@ export class PanelManager {
     }
 
     // ── Server-Aufbau (Bestätigen/Abbrechen) ──
-    if (id === 'serveraufbau_start' || id === 'serveraufbau_abbrechen') {
+    if (id === 'serveraufbau_start' || id === 'serveraufbau_start_clean' || id === 'serveraufbau_abbrechen') {
       if (!hasAdminPermission(member)) {
         await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Admins.')], ephemeral: true });
         return;

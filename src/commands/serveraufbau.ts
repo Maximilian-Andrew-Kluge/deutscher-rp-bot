@@ -12,7 +12,11 @@ import { ROLE_BLUEPRINT, CATEGORY_BLUEPRINT } from '../config/serverBlueprint';
 
 export const data = new SlashCommandBuilder()
   .setName('serveraufbau')
-  .setDescription('Baut den kompletten Server automatisch auf (Rollen, Kanäle, Rechte)');
+  .setDescription('Baut den kompletten Server automatisch auf (Rollen, Kanäle, Rechte)')
+  .addBooleanOption(o => o
+    .setName('aufraeumen')
+    .setDescription('ALLE bestehenden Kanäle vorher löschen? (VORSICHT!)')
+    .setRequired(false));
 
 export async function execute(interaction: CommandInteraction): Promise<void> {
   if (!interaction.isChatInputCommand()) return;
@@ -22,6 +26,8 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
     await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Du benötigst Administrator-Rechte.')], ephemeral: true });
     return;
   }
+
+  const aufraeumen = interaction.options.getBoolean('aufraeumen') ?? false;
 
   // Sicherheitsabfrage — großer Eingriff
   const warnEmbed = new EmbedBuilder()
@@ -33,12 +39,19 @@ export async function execute(interaction: CommandInteraction): Promise<void> {
       `• **${CATEGORY_BLUEPRINT.length} Kategorien** mit allen Kanälen\n` +
       '• Alle Berechtigungen (privat/öffentlich)\n' +
       '• Bot-Rollen-Zuordnung (role_config)\n\n' +
-      '**Bereits existierende Rollen/Kanäle mit gleichem Namen werden übersprungen** — es wird nichts gelöscht.\n\n' +
+      (aufraeumen
+        ? '🔴 **ACHTUNG: AUFRÄUMEN AKTIV!**\n**ALLE bestehenden Kanäle werden zuerst GELÖSCHT.** ' +
+          'Dies kann NICHT rückgängig gemacht werden! Rollen bleiben erhalten.\n\n'
+        : '**Bereits existierende Kanäle mit gleichem Namen werden übersprungen** — es wird nichts gelöscht.\n\n') +
       'Möchtest du fortfahren?'
     );
 
+  const startId = aufraeumen ? 'serveraufbau_start_clean' : 'serveraufbau_start';
+  const startLabel = aufraeumen ? 'Löschen & Aufbauen' : 'Ja, aufbauen';
+  const startStyle = aufraeumen ? ButtonStyle.Danger : ButtonStyle.Success;
+
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId('serveraufbau_start').setLabel('Ja, aufbauen').setStyle(ButtonStyle.Success).setEmoji('🏗️'),
+    new ButtonBuilder().setCustomId(startId).setLabel(startLabel).setStyle(startStyle).setEmoji('🏗️'),
     new ButtonBuilder().setCustomId('serveraufbau_abbrechen').setLabel('Abbrechen').setStyle(ButtonStyle.Secondary),
   );
 
@@ -52,10 +65,11 @@ export async function handleServeraufbauButton(interaction: ButtonInteraction): 
     return;
   }
 
-  if (interaction.customId !== 'serveraufbau_start') return;
+  const mitLoeschen = interaction.customId === 'serveraufbau_start_clean';
+  if (interaction.customId !== 'serveraufbau_start' && !mitLoeschen) return;
 
   await interaction.update({
-    embeds: [new EmbedBuilder().setColor(config.colors.info as ColorResolvable).setTitle('🏗️ Server wird aufgebaut...').setDescription('Das kann eine Minute dauern. Bitte warten...')],
+    embeds: [new EmbedBuilder().setColor(config.colors.info as ColorResolvable).setTitle('🏗️ Server wird aufgebaut...').setDescription(mitLoeschen ? 'Räume auf und baue neu... Das kann 1-2 Minuten dauern.' : 'Das kann eine Minute dauern. Bitte warten...')],
     components: [],
   });
 
@@ -63,6 +77,22 @@ export async function handleServeraufbauButton(interaction: ButtonInteraction): 
   const log: string[] = [];
 
   try {
+    // ── 0. AUFRÄUMEN: alle Kanäle löschen (optional) ─────────────────────────
+    if (mitLoeschen) {
+      await guild.channels.fetch();
+      let geloescht = 0;
+      // Kopie erstellen, da wir die Collection während des Löschens verändern
+      const alleKanaele = [...guild.channels.cache.values()];
+      for (const ch of alleKanaele) {
+        if (!ch) continue;
+        try {
+          await ch.delete('Server-Aufbau: Aufräumen');
+          geloescht++;
+        } catch { /* z.B. Community-Regel-Kanäle können nicht gelöscht werden */ }
+      }
+      log.push(`🗑️ ${geloescht} Kanäle gelöscht`);
+    }
+
     // ── 1. ROLLEN erstellen ────────────────────────────────────────────────
     await guild.roles.fetch();
     const roleNameToId = new Map<string, string>();
