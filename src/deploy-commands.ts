@@ -9,8 +9,8 @@ const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.CLIENT_ID;
 const guildId = process.env.GUILD_ID;
 
-if (!token || !clientId || !guildId) {
-  console.error('❌ DISCORD_TOKEN, CLIENT_ID und GUILD_ID müssen in der .env Datei gesetzt sein!');
+if (!token || !clientId) {
+  console.error('❌ DISCORD_TOKEN und CLIENT_ID müssen in der .env Datei gesetzt sein!');
   process.exit(1);
 }
 
@@ -54,14 +54,25 @@ const rest = new REST().setToken(token);
 
 (async () => {
   try {
-    console.log(`\n🚀 Deploye ${commands.length} Slash Command(s) auf Server ${guildId}...`);
-
-    const data = await rest.put(
-      Routes.applicationGuildCommands(clientId, guildId),
+    // ── Global deployen (auf ALLEN Servern sichtbar, kann bis zu 1h dauern) ──
+    console.log(`\n🌍 Deploye ${commands.length} Slash Command(s) GLOBAL (alle Server)...`);
+    const globalData = await rest.put(
+      Routes.applicationCommands(clientId!),
       { body: commands }
     );
+    console.log(`✅ ${(globalData as object[]).length} globale Slash Command(s) deployed!`);
+    console.log('   ℹ️  Globale Commands können bis zu 1 Stunde brauchen bis sie überall erscheinen.');
 
-    console.log(`✅ ${(data as object[]).length} Slash Command(s) erfolgreich deployed!`);
+    // ── Zusätzlich sofort auf dem Hauptserver (falls GUILD_ID gesetzt) ──
+    if (guildId) {
+      console.log(`\n🚀 Deploye zusätzlich sofort auf Hauptserver ${guildId}...`);
+      const guildData = await rest.put(
+        Routes.applicationGuildCommands(clientId!, guildId),
+        { body: commands }
+      );
+      console.log(`✅ ${(guildData as object[]).length} Command(s) sofort auf dem Hauptserver verfügbar!`);
+    }
+
     console.log('\nDeployete Commands:');
     commands.forEach(cmd => console.log(`  • /${(cmd as { name: string }).name}`));
 
