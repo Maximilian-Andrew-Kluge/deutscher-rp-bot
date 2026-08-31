@@ -122,27 +122,64 @@ const S = ChannelType.GuildStageVoice;
  * Kategorien + Kanäle. Reihenfolge = Anzeigereihenfolge.
  */
 export const CATEGORY_BLUEPRINT: CategoryBlueprint[] = [
+  // ═══ INFORMATION ═══
   {
-    name: '📯│ Allgemein │📯',
+    name: '📌│ INFORMATION │📌',
     privat: false, rollen: [],
     channels: [
       { name: '👋・willkommen', type: T },
-      { name: '📚・regeln', type: T },
-      { name: '📰・neuigkeiten', type: A },
+      { name: '📜・regeln', type: T },
+      { name: '📢・ankündigungen', type: A },
+      { name: '🔄・updates', type: A },
+      { name: '🎁・giveaways', type: T },
       { name: '📅・events', type: T },
+      { name: '❓・faq', type: T },
+      { name: '🎭・selfroles', type: T },
     ],
   },
+  // ═══ COMMUNITY ═══
   {
-    name: '📜│ CHATS │📜',
+    name: '💬│ COMMUNITY │💬',
     privat: false, rollen: [],
     channels: [
       { name: '💬・hauptchat', type: T },
+      { name: '👋・vorstellung', type: T },
+      { name: '🎮・in-game-namen', type: T },
+      { name: '💡・vorschläge', type: T },
+      { name: '📊・umfragen', type: T },
       { name: '🐸・memes', type: T },
       { name: '📸・medien', type: T },
-      { name: '🔌・commands', type: T },
-      { name: '🎮・in-game-namen', type: T },
+      { name: '🎬・clips', type: T },
+      { name: '🤖・bot-commands', type: T },
+      { name: '🔊・zähler', type: T },
     ],
   },
+  // ═══ VOICE (für alle) ═══
+  {
+    name: '🔊│ VOICE │🔊',
+    privat: false, rollen: [],
+    channels: [
+      { name: '➕ Erstelle deinen Kanal', type: V },
+      { name: '🎙️・Lounge 1', type: V },
+      { name: '🎙️・Lounge 2', type: V },
+      { name: '🎵・Musik', type: V },
+      { name: '🎮・Gaming', type: V },
+      { name: '💤・AFK', type: V },
+    ],
+  },
+  // ═══ SUPPORT ═══
+  {
+    name: '🎧│ SUPPORT │🎧',
+    privat: false, rollen: [],
+    channels: [
+      { name: '🎫・ticket-erstellen', type: T },
+      { name: '📋・bewerbungen-info', type: T },
+      { name: '🔇・Support-Warteraum', type: V },
+      { name: '🎧・Support 1', type: V },
+      { name: '🎧・Support 2', type: V },
+    ],
+  },
+  // ═══ OWNER ═══
   {
     name: '👑│ OWNER │👑',
     privat: true, rollen: [...GRUPPEN.owner],
@@ -154,6 +191,7 @@ export const CATEGORY_BLUEPRINT: CategoryBlueprint[] = [
       { name: '👑・owner-talk', type: V },
     ],
   },
+  // ═══ TEAMVERWALTUNG ═══
   {
     name: '🛡️│ TEAMVERWALTUNG │🛡️',
     privat: true, rollen: [...GRUPPEN.team],
@@ -164,20 +202,26 @@ export const CATEGORY_BLUEPRINT: CategoryBlueprint[] = [
       { name: '💡・team-ideen', type: T },
       { name: '❓・team-fragen', type: T },
       { name: '🛡️・team-regeln', type: T },
+      { name: '📋・abwesenheiten', type: T },
       { name: '🎓・admin-ausbildung', type: T },
       { name: '🎓・support-ausbildung', type: T },
       { name: '💬・team-talk', type: V },
+      { name: '🔒・leitung-talk', type: V },
     ],
   },
+  // ═══ BOT-LOGS ═══
   {
-    name: '🎧│ Support │🎧',
-    privat: false, rollen: [],
+    name: '📋│ LOGS │📋',
+    privat: true, rollen: [...GRUPPEN.team],
     channels: [
-      { name: '🎫・ticket', type: T },
-      { name: '🔇・Warteraum', type: V },
-      { name: '🎧・Support', type: V },
+      { name: '📋・bot-logs', type: T },
+      { name: '🎫・ticket-logs', type: T },
+      { name: '🎧・support-logs', type: T },
+      { name: '🛡️・moderation-logs', type: T },
+      { name: '🔊・voice-logs', type: T },
     ],
   },
+  // ═══ JUSTIZ ═══
   {
     name: '⚖️│ JUSTIZ │⚖️',
     privat: true, rollen: [...GRUPPEN.justiz],
@@ -190,63 +234,68 @@ export const CATEGORY_BLUEPRINT: CategoryBlueprint[] = [
       { name: '⚖️・verfahren', type: F },
       { name: '📂・akten', type: F },
       { name: '🏛️・gericht', type: S },
+      { name: '⚖️・justiz-talk', type: V },
     ],
   },
+  // ═══ POLIZEI ═══
   {
     name: '🚓│ POLIZEI │🚓',
     privat: true, rollen: [...GRUPPEN.polizei],
     channels: [
       { name: '📰・neuigkeiten', type: A },
       { name: '💬・chat', type: T },
+      { name: '📋・dienstplan', type: T },
+      { name: '📢・fahndungen', type: T },
       { name: '🎓・polizei-ausbildung', type: T },
       { name: '🚓・polizei-funk', type: V },
       { name: '🚓・polizei-wache', type: V },
+      { name: '🚓・streife-1', type: V },
     ],
   },
+  // ═══ FEUERWEHR ═══
   {
     name: '🚒│ FEUERWEHR │🚒',
     privat: true, rollen: [...GRUPPEN.feuerwehr],
     channels: [
       { name: '📰・neuigkeiten', type: A },
       { name: '💬・chat', type: T },
+      { name: '📋・dienstplan', type: T },
       { name: '🎓・feuerwehr-ausbildung', type: T },
       { name: '🚒・feuerwehr-funk', type: V },
       { name: '🚒・feuerwehr-wache', type: V },
     ],
   },
+  // ═══ RETTUNGSDIENST ═══
   {
     name: '🚑│ RETTUNGSDIENST │🚑',
     privat: true, rollen: [...GRUPPEN.rettungsdienst],
     channels: [
       { name: '📰・neuigkeiten', type: A },
       { name: '💬・chat', type: T },
+      { name: '📋・dienstplan', type: T },
       { name: '🎓・rettungsdienst-ausbildung', type: T },
       { name: '🚑・rettungs-funk', type: V },
       { name: '🚑・rettungs-wache', type: V },
     ],
   },
+  // ═══ ADAC ═══
   {
     name: '🚕│ ADAC │🚕',
     privat: true, rollen: [...GRUPPEN.adac],
     channels: [
       { name: '📰・neuigkeiten', type: A },
       { name: '💬・chat', type: T },
+      { name: '🚕・adac-funk', type: V },
       { name: '🚕・adac-talk', type: V },
     ],
   },
+  // ═══ V.I.P ═══
   {
-    name: '👑│ V.I.P │👑',
+    name: '💎│ V.I.P │💎',
     privat: true, rollen: [...GRUPPEN.vip],
     channels: [
-      { name: '👑・vip-chat', type: T },
-      { name: '👑・V.I.P Sprachchat', type: V },
-    ],
-  },
-  {
-    name: '🎭│ ROLEPLAY │🎭',
-    privat: false, rollen: [],
-    channels: [
-      { name: '➕ Creator Channel', type: V },
+      { name: '💎・vip-chat', type: T },
+      { name: '💎・vip-lounge', type: V },
     ],
   },
 ];
