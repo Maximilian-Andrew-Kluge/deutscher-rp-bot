@@ -8,6 +8,7 @@ dotenv.config();
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.CLIENT_ID;
 const guildId = process.env.GUILD_ID;
+const testGuildId = process.env.TEST_GUILD_ID;
 
 if (!token || !clientId) {
   console.error('❌ DISCORD_TOKEN und CLIENT_ID müssen in der .env Datei gesetzt sein!');
@@ -71,6 +72,16 @@ const rest = new REST().setToken(token);
         { body: commands }
       );
       console.log(`✅ ${(guildData as object[]).length} Command(s) sofort auf dem Hauptserver verfügbar!`);
+    }
+
+    // ── Zusätzlich sofort auf dem Testserver (falls TEST_GUILD_ID gesetzt) ──
+    if (testGuildId && testGuildId !== guildId) {
+      console.log(`\n🧪 Deploye zusätzlich sofort auf Testserver ${testGuildId}...`);
+      const testData = await rest.put(
+        Routes.applicationGuildCommands(clientId!, testGuildId),
+        { body: commands }
+      );
+      console.log(`✅ ${(testData as object[]).length} Command(s) sofort auf dem Testserver verfügbar!`);
     }
 
     console.log('\nDeployete Commands:');

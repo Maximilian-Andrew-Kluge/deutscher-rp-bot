@@ -75,6 +75,17 @@ export class PanelManager {
       return;
     }
 
+    // ── Server-Aufbau (Bestätigen/Abbrechen) ──
+    if (id === 'serveraufbau_start' || id === 'serveraufbau_abbrechen') {
+      if (!hasAdminPermission(member)) {
+        await interaction.reply({ embeds: [createErrorEmbed('Keine Berechtigung', 'Nur Admins.')], ephemeral: true });
+        return;
+      }
+      const { handleServeraufbauButton } = await import('../commands/serveraufbau');
+      await handleServeraufbauButton(interaction);
+      return;
+    }
+
     // ── Ticket schliessen ──
     if (id === 'ticket_schliessen') {
       if (!hasAdminPermission(member) && !hasModPermission(member)) {
