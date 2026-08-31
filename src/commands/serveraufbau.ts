@@ -155,10 +155,21 @@ export async function handleServeraufbauButton(interaction: ButtonInteraction): 
         );
         if (exists) continue;
 
+        // Ankündigungs- (5) und Bühnen-Kanäle (13) lassen sich nicht zuverlässig
+        // per API in einer Kategorie erstellen → auf Text/Voice abbilden.
+        let createType: ChannelType.GuildText | ChannelType.GuildVoice | ChannelType.GuildForum;
+        if (ch.type === ChannelType.GuildAnnouncement) {
+          createType = ChannelType.GuildText;
+        } else if (ch.type === ChannelType.GuildStageVoice) {
+          createType = ChannelType.GuildVoice;
+        } else {
+          createType = ch.type;
+        }
+
         try {
           await guild.channels.create({
             name: ch.name,
-            type: ch.type,
+            type: createType,
             parent: category!.id,
             reason: 'Server-Aufbau durch Bot',
             // Kanäle erben die Rechte der Kategorie automatisch
